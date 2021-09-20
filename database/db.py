@@ -17,7 +17,7 @@ class DB:
 
     def __init__(self):
         # opted not to make a method "get_db_info" to avoid exposing sensitive information
-        db_info = _read_yaml("db_info")
+        db_info = _read_yaml("info")
 
         self.conn = self.connect_db(db_info)
         self.cur = self.get_cursor()
@@ -50,17 +50,18 @@ class DB:
     def connect_db(db_info: dict) -> pyodbc.Connection:
         try:
             conn = pyodbc.connect(f"Driver={db_info['driver']};"
-                                       f"Server={db_info['server']};"
-                                       f"uid={db_info['username']};"
-                                       f"pwd={db_info['password']};"
-                                       "Trusted_Connection=yes;")
+                                  f"Server={db_info['server']};"
+                                  f"uid={db_info['username']};"
+                                  f"pwd={db_info['password']};"
+                                  "Trusted_Connection=yes;",
+                                  timeout=0)
             conn.autocommit = True
             print('Successfully connected to SQL Server')
+            return conn
 
         except pyodbc.Error as e:
             ConnectionError(e)
             print('Failed to connect to SQL Server')
-        return conn
 
     def get_cursor(self) -> pyodbc.Connection.cursor:
         return self.conn.cursor()
@@ -81,109 +82,6 @@ class DB:
                 full_file = os.path.join(path, file)
                 with open(full_file, 'r') as sql_file:
                     self.cur.execute(sql_file.read())
-
-
-class InsertData:
-
-    def __init__(self, db_object: DB):
-        self.cur = db_object.cur
-
-    def __del__(self):
-        self.cur.close()
-
-    def insert_arterial_spin_labeling_data(self, data_dict: dict) -> None:
-        sql = """EXEC sp__InsertIntoArterialSpinLabeling (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,
-                    ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"""
-        params = list(data_dict.values())
-        self._exec(sql, params)
-
-    def insert_into_biosamples(self, data_dict: dict) -> None:
-        sql = "EXEC sp__InsertIntoBiosamples (?,?,?,?,?,?,?,?,?,?,?,?)"
-        params = list(data_dict.values())
-        self._exec(sql, params)
-
-    def insert_into_body_measurements_data(self, data_dict: dict) -> None:
-        sql = "EXEC sp__InsertIntoBodyMeasurementsData (?,?,?,?,?,?,?,?)"
-        params = list(data_dict.values())
-        self._exec(sql, params)
-
-    def insert_into_cerebrovascular_reactivity_data(self, data_dict: dict) -> None:
-        sql = "EXEC sp__InsertIntoCerebrovascularReactivityData (?,?,?,?,?,?,?,?,?,?,?)"
-        params = list(data_dict.values())
-        self._exec(sql, params)
-
-    def insert_into_complete_blood_count_data(self, data_dict: dict) -> None:
-        sql = "EXEC sp__InsertIntoCompleteBloodCountData (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-        params = list(data_dict.values())
-        self._exec(sql, params)
-
-    def insert_into_dexa_data(self, data_dict: dict) -> None:
-        sql = "EXEC sp__InsertIntoDexaData (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-        params = list(data_dict.values())
-        self._exec(sql, params)
-
-    def insert_into_heart_rate_recovery_data(self, data_dict: dict) -> None:
-        sql = "EXEC sp__InsertIntoHeartRateRecoveryData (?,?,?,?)"
-        params = list(data_dict.values())
-        self._exec(sql, params)
-
-    def insert_into_maximal_oxygen_uptake_data(self, data_dict: dict) -> None:
-        sql = "EXEC sp__InsertIntoMaximalOxygenUptakeData ('?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-        params = list(data_dict.values())
-        self._exec(sql, params)
-
-    def insert_into_ogtt_blood_chemistries(self, data_dict: dict) -> None:
-        sql = "EXEC sp__InsertIntoOgttBloodChemistries (?,?,?,?,?,?)"
-        params = list(data_dict.values())
-        self._exec(sql, params)
-
-    def insert_into_screening_blood_chemistries(self, data_dict: dict) -> None:
-        sql = "EXEC sp__InsertIntoScreeningBloodChemistries (?,?,?,?,?,?,?,?,?,?)"
-        params = list(data_dict.values())
-        self._exec(sql, params)
-
-    def insert_into_screening_vitals_data(self, data_dict: dict) -> None:
-        sql = "EXEC sp__InsertIntoScreeningVitalsData (?,?,?,?,?,?,?,?,?)"
-        params = list(data_dict.values())
-        self._exec(sql, params)
-
-    def insert_into_subjects(self, data_dict: dict) -> None:
-        sql = "EXEC sp__InsertIntoSubjects (?,?,?,?,?,?)"
-        params = list(data_dict.values())
-        self._exec(sql, params)
-
-    def insert_into_submaximal_exercise_data(self, data_dict: dict) -> None:
-        sql = "EXEC sp__InsertIntoSubmaximalExerciseData (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-        params = list(data_dict.values())
-        self._exec(sql, params)
-
-    def insert_into_vipr_heart_rate_data(self, data_dict: dict) -> None:
-        sql = "EXEC sp__InsertIntoViprHeartRateData (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-        params = list(data_dict.values())
-        self._exec(sql, params)
-
-    def insert_into_vipr_time_averaged_data(self, data_dict: dict) -> None:
-        sql = "EXEC sp__InsertIntoViprTimeAveragedData (?,?,?,?,?,?,?,?,?,?,?,?)"
-        params = list(data_dict.values())
-        self._exec(sql, params)
-
-    def insert_into_vipr_time_resolved_data(self, data_dict: dict) -> None:
-        sql = "EXEC sp__InsertIntoViprTimeResolvedData (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-        params = list(data_dict.values())
-        self._exec(sql, params)
-
-    def insert_into_vipr_windows(self, data_dict: dict) -> None:
-        sql = "EXEC sp__InsertIntoViprWindows (?,?,?,?,?,?,?)"
-        params = list(data_dict.values())
-        self._exec(sql, params)
-
-    def insert_into_visits(self, data_dict: dict) -> None:
-        sql = "EXEC sp__InsertIntoVisits"
-        params = list(data_dict.values())
-        self._exec(sql, params)
-
-    def _exec(self, sql: str, params: list) -> None:
-        self.cur.execute(sql, params)
 
 
 class GetId:
@@ -231,7 +129,7 @@ class InsertDefaultValues:
         self._exec(sql, ethnicities)
 
     def insert_default_freezers(self) -> None:
-        #TODO: fix 2 params vs 1 param
+        # TODO: fix 2 params vs 1 param
         sql = "EXEC dbo.sp__InsertDefaultValuesFreezers @name=?, @number=?"
         freezers = list(zip([
             ('-80', 14)
