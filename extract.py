@@ -10,7 +10,7 @@ from utils import get_drives_windows
 
 
 def extact_redcap_data(ti: object = None, export_content: str = 'records', file_name: str = None,
-                       staging_location: str = None, **kwargs) -> tuple:
+                       staging_location: str = None, **kwargs) -> None:
     """
     Extract raw data from REDCap
 
@@ -29,17 +29,18 @@ def extact_redcap_data(ti: object = None, export_content: str = 'records', file_
     :param kwargs: key-value pairs of api parameters to supply to the api call specified by export_content.
     """
 
-    export_content_options = [
-        'arms' 
-        'events' 
-        'field_names',
-        'file',
-        'form_event_mapping',
-        'logging',
-        'records'
-    ]
-    if export_content not in export_content_options:
-        raise ValueError(f'Invalid value for export_content: {export_content}.\nOptions include {export_content_options}')
+    export_content_mapping = {
+        'arms': api.export_arms,
+        'events': api.export_events,
+        'field_names': api.export_field_names,
+        'file': api.export_file,
+        'form_event_mapping': api.export_form_event_mapping,
+        'logging': api.export_logging,
+        'records': api.export_records,
+    }
+    if export_content not in export_content_mapping.keys():
+        raise ValueError(f'Invalid value for export_content: {export_content}. '
+                         f'Options include {export_content_mapping.keys()}')
 
     if file_name is not None and not isinstance(file_name, str):
         raise TypeError(f'Invalid value for file_name: {file_name}. Value must be a string.')
@@ -63,8 +64,8 @@ def extact_redcap_data(ti: object = None, export_content: str = 'records', file_
             staging_location = os.path.join("C:/", "Users", os.getlogin(), "Desktop")
 
     # export from redcap
-    json_data = getattr(api, f'export_{export_content}')()
-    df = pd.DataFrame.from_records(api.export_records(**kwargs))
+    json_data = getattr(api, export_content_mapping[export_content])()
+    df = pd.DataFrame.from_records(json_data)
 
     # save file
     df.to_csv(os.path.join(staging_location, fname))
