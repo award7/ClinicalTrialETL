@@ -1,15 +1,15 @@
-from api import api
+from ClinicalTrialETL.redcap_api import api
 import pandas as pd
 import os
 from sys import platform
 from datetime import datetime
-from utils import get_drives_windows
+from ClinicalTrialETL.etl.utils import get_drives_windows
 
 
 """module for extracting data in the ETL process"""
 
 
-def extact_redcap_data(ti: object = None, export_content: str = 'records', file_name: str = None,
+def extract_redcap_data(ti: object = None, export_content: str = 'records', file_name: str = None,
                        staging_location: str = None, **kwargs) -> None:
     """
     Extract raw data from REDCap
@@ -26,7 +26,7 @@ def extact_redcap_data(ti: object = None, export_content: str = 'records', file_
     :param staging_location: path to staging area to save raw data. If staging_location is None, the staging_location
     defaults to the users desktop location. Default = None.
     :type staging_location: str
-    :param kwargs: key-value pairs of api parameters to supply to the api call specified by export_content.
+    :param kwargs: key-value pairs of redcap_api parameters to supply to the redcap_api call specified by export_content.
     """
 
     export_content_mapping = {
@@ -38,17 +38,25 @@ def extact_redcap_data(ti: object = None, export_content: str = 'records', file_
         'logging': api.export_logging,
         'records': api.export_records,
     }
+
     if export_content not in export_content_mapping.keys():
         raise ValueError(f'Invalid value for export_content: {export_content}. '
                          f'Options include {export_content_mapping.keys()}')
 
-    if file_name is not None and not isinstance(file_name, str):
-        raise TypeError(f'Invalid value for file_name: {file_name}. Value must be a string.')
-
-    # timestamp format YYYYMMDD_HHMMSS
-    timestamp = datetime.now().strftime('%Y%m%d_%I%M%S')
     file_ext = 'csv'
-    fname = f'irb_2019_0361_{export_content}_raw_{timestamp}.{file_ext}'
+    if file_name is not None:
+        if not isinstance(file_name, str):
+            raise TypeError(f'Invalid value for file_name: {file_name}. Value must be a string.')
+
+        # change file to .csv, if needed
+        fname, ext = os.path.splitext(file_name)[-1]
+        if ext != f'.{file_ext}':
+            print('Converting file name to .csv')
+            file_name = f'{fname}.{file_ext}'
+    else:
+        # timestamp format YYYYMMDD_HHMMSS
+        timestamp = datetime.now().strftime('%Y%m%d_%I%M%S')
+        file_name = f'irb_2019_0361_{export_content}_raw_{timestamp}.{file_ext}'
 
     # determine staging location
     if staging_location is None:
@@ -62,13 +70,15 @@ def extact_redcap_data(ti: object = None, export_content: str = 'records', file_
                 pass
             # todo: change default to L:/bucket
             staging_location = os.path.join("C:/", "Users", os.getlogin(), "Desktop")
+        elif platform == 'linux':
+            staging_location = os.path.join('/home', os.getlogin(), 'Desktop')
 
     # export from redcap
-    json_data = getattr(api, export_content_mapping[export_content])()
+    json_data = export_content_mapping[export_content](**kwargs)
     df = pd.DataFrame.from_records(json_data)
 
     # save file
-    df.to_csv(os.path.join(staging_location, fname))
+    df.to_csv(os.path.join(staging_location, file_name))
 
     # do xcom_push if ti != None
     if ti is not None:

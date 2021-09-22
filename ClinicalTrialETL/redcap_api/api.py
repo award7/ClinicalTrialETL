@@ -8,7 +8,7 @@ import enum
 
 
 class PostAPI:
-    """decorator class for wrapping and making api calls to REDCap"""
+    """decorator class for wrapping and making redcap_api calls to REDCap"""
 
     def __init__(self, func):
         self.func = func
@@ -36,8 +36,8 @@ class PostAPI:
         config_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'config.yaml')
         with open(config_file, 'r') as f:
             config_data = yaml.load(f, Loader=yaml.FullLoader)
-        self.token = config_data['api']['token']
-        self.url = config_data['api']['url']
+        self.token = config_data['redcap_api']['token']
+        self.url = config_data['redcap_api']['url']
 
     def log_api_response(self):
         # todo: create log?
@@ -218,7 +218,7 @@ def export_records(records: list = None, fields: list = None, forms: list = None
                    export_survey_fields: bool = False, export_dags: bool = False, filter_logic: str = None,
                    date_range_begin: str = None, date_range_end: str = None, csv_delimiter: str = 'comma',
                    decimal_char: str = None, return_type: str = 'flat', data_format: str = 'json',
-                   error_format: str = 'json'):
+                   error_format: str = 'json', **kwargs):
     """This method allows you to export a set of records for a project.
 
     :param records: An array of record names specifying specific records you wish to pull. If 'None', all records will
