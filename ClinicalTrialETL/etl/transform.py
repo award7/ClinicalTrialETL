@@ -1,9 +1,19 @@
 import pandas as pd
+import os
+from datetime import datetime
 
 
 # decorators
-def _read_file_to_df(file_name: str):
-    pass
+def read_file_to_df(func):
+    def wrapper(*args, **kwargs):
+        ti = kwargs['ti']
+        # todo: make an airflow task to mkdir a proc_staging >> cp raw file to there >> transform...
+        proc_staging_location = ti.xcom_pull(key='proc_staging_location', task_ids=['mkdir_proc_staging'])
+        file_name = ti.xcom_pull(key='file_name', task_ids=['extract'])
+        df = pd.read_csv(os.path.join(proc_staging_location, file_name))
+        df = func(df, *args, **kwargs)
+        df.to_csv(os.path.join(proc_staging_location, file_name))
+    return wrapper
 
 
 def set_column_to_int(df: pd.DataFrame, columns: list) -> pd.DataFrame:
@@ -22,6 +32,11 @@ def set_column_to_str():
     pass
 
 
+def set_column_to_datetime(df: pd.DataFrame, columns: list) -> pd.DataFrame:
+    df[columns] = df[columns].apply(pd.to_datetime)
+    return df
+
+
 def add_na():
     pass
 
@@ -30,16 +45,71 @@ def calculate_par_met_hours():
     pass
 
 
-def calculate_bmi():
-    pass
+@read_file_to_df
+def calculate_bmi(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
+    df['bmi'] = df['weight_scr_data'] / ((df['height_scr_data'] / 100) ** 2)
+    return df
 
 
-def calculate_hip_waist_ratio():
-    pass
+@read_file_to_df
+def calculate_bmi_zscore(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
+    # parameters: dob, visit_date, sex, bmi
+    """
+    Calculate the BMI z-score and percentile for each subject
+
+    https://www.cdc.gov/growthcharts/percentile_data_files.htm
+
+    :param df:
+    :param args:
+    :param kwargs:
+    :return:
+    """
+
+    # todo: put this on github and read into df
+    df_cdc = pd.DataFrame('cdc_growth_data.csv')
+
+    # calculate the age with month precision at time of visit
+    dob = datetime.strptime(dob, '%m/%d/%Y')
+    visit_date = datetime.strptime(visit_date, '%m/%d/%Y')
+    age = (visit_date.year - dob.year) * 12 + visit_date.month - dob.month
+
+    # get M, S, Z regression coefficients
+    M = df_cdc.loc[(df_cdc['age_(months)'] == age) & (df_cdc['sex'] == sex)]['M'].values
+    S = df_cdc.loc[(df_cdc['age_(months)'] == age) & (df_cdc['sex'] == sex)]['S'].values
+    Z = np.round(math.log(bmi / M) / S, 2)
+
+    if Z > 0:
+        fname_ztable = 'ztable_positive.csv'
+        if len(str(Z)[1:-1]) < 4:
+            zx = 'zx0'
+        else:
+            zx = 'zx' + str(Z)[-2]
+    else:
+        fname_ztable = 'ztable_negative.csv'
+        if len(str(Z)[1:-1]) < 5:
+            zx = 'zx0'
+        else:
+            zx = 'zx' + str(Z)[-2]
+
+    zy = str(Z)[1:-2]
+
+    # save file
+    path_ztable = os.path.join('C:/Users', username, 'Box\PHI_Data-A1760-Schrage\IRB_2019_0361\data', fname_ztable)
+    df_ztable = pd.read_csv(path_ztable)
+    percentile = df_ztable.loc[df_ztable['zy'] == zy][zx].values
+    return Z, percentile
 
 
-def calculate_homa_ir():
-    pass
+@read_file_to_df
+def calculate_hip_waist_ratio(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
+    df['hip_waist_ratio'] = df['hip_scr_data'] / df['waist_scr_data']
+    return df
+
+
+@read_file_to_df
+def calculate_homa_ir(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
+    df['homa_ir'] = (df['insulin_scr_data'] * df['glucose3_scr_data']) / 405
+    return df
 
 
 # 2021/09/10: these are all queries xD  move or ignore these
