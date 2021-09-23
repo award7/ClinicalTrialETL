@@ -1,19 +1,199 @@
 import pandas as pd
 import os
 from datetime import datetime
+from ClinicalTrialETL.etl.utils import get_default_staging_location
 
 
 # decorators
-def read_file_to_df(func):
+def parse_raw(func):
     def wrapper(*args, **kwargs):
         ti = kwargs['ti']
-        # todo: make an airflow task to mkdir a proc_staging >> cp raw file to there >> transform...
-        proc_staging_location = ti.xcom_pull(key='proc_staging_location', task_ids=['mkdir_proc_staging'])
-        file_name = ti.xcom_pull(key='file_name', task_ids=['extract'])
-        df = pd.read_csv(os.path.join(proc_staging_location, file_name))
+
+        # read raw file into df
+        raw_staging_location = ti.xcom_pull(key='raw_staging_location', task_ids='extract.extract-redcap-data-full')
+        raw_file_name = ti.xcom_pull(key='file_name', task_ids='extract.extract-redcap-data-full')
+        df = pd.read_csv(os.path.join(raw_staging_location, raw_file_name))
+
+        # call wrapped function
+        file_name = kwargs['file_name']
         df = func(df, *args, **kwargs)
-        df.to_csv(os.path.join(proc_staging_location, file_name))
+
+        # save modified df to proc location
+        proc_staging_location = ti.xcom_pull(key='proc_staging_location',
+                                             task_ids='transform.set-proc-staging-location')
+        df.to_csv(os.path.join(proc_staging_location, kwargs['file_name']))
+
+        # xcom_push file name
+        ti.xcom_push(key='file_name', value=file_name)
     return wrapper
+
+
+def read_proc_file(task_id):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            ti = kwargs['ti']
+            proc_staging_location = ti.xcom_pull(key='proc_staging_location',
+                                                 task_ids='transform.set-proc-staging-location')
+            file_name = ti.xcom_pull(key='file_name', task_ids=task_id)
+            print(f'task_id: {task_id}')
+            df = pd.read_csv(os.path.join(proc_staging_location, file_name))
+
+            df = func(df, *args, **kwargs)
+
+            proc_staging_location = ti.xcom_pull(key='proc_staging_location',
+                                                 task_ids='transform.set-proc-staging-location')
+            df.to_csv(os.path.join(proc_staging_location, file_name))
+
+        return wrapper
+    return decorator
+
+
+def set_proc_staging_location(ti: object = None, *args, **kwargs) -> None:
+    # xcom_push the proc_staging_location
+    proc_staging_location = get_default_staging_location(bucket='proc')
+    ti.xcom_push(key='proc_staging_location', value=proc_staging_location)
+
+
+# parsing functions
+@parse_raw
+def parse_prescreening_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
+    return df
+
+
+@parse_raw
+def parse_consent_data(df: pd.DataFrame) -> pd.DataFrame:
+    """
+
+    :param df:
+    :return:
+    """
+    pass
+
+
+@parse_raw
+def parse_demographics_data(df: pd.DataFrame) -> pd.DataFrame:
+    pass
+
+
+@parse_raw
+def parse_medical_history_data(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Parse any data relevant to medical history, including MRI screening questionnaire and concomitant medications
+
+    :param df:
+    :return:
+    """
+    pass
+
+
+@parse_raw
+def parse_tanner_data(df: pd.DataFrame) -> pd.DataFrame:
+    pass
+
+
+@parse_raw
+def parse_par_data(df: pd.DataFrame) -> pd.DataFrame:
+    pass
+
+
+@parse_raw
+def parse_screening_data(df: pd.DataFrame) -> pd.DataFrame:
+    pass
+
+
+def parse_eligibility_data(df: pd.DataFrame) -> pd.DataFrame:
+    pass
+
+
+def parse_cognitive_data(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Parse the visit encounter details
+    :param df:
+    :return:
+    """
+    pass
+
+
+def parse_mri_structural_visit_data(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Parse the visit encounter details (e.g. fasting duration, scans that were completed, etc.), not the actual MRI
+    analysis
+
+    :param df:
+    :return:
+    """
+    pass
+
+
+def parse_ogtt_visit_data(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Parse the visit encounter details (e.g. fasting duration, scans that were completed, etc.), not the actual MRI
+    analysis
+
+    :param df:
+    :return:
+    """
+    pass
+
+
+def parse_deviation_data(df: pd.DataFrame) -> pd.DataFrame:
+    """
+
+    :param df:
+    :return:
+    """
+    pass
+
+
+def parse_adverse_event_data(df: pd.DataFrame) -> pd.DataFrame:
+    """
+
+    :param df:
+    :return:
+    """
+    pass
+
+
+def parse_note_to_file_data(df: pd.DataFrame) -> pd.DataFrame:
+    """
+
+    :param df:
+    :return:
+    """
+    pass
+
+
+def parse_visit_note_data(df: pd.DataFrame) -> pd.DataFrame:
+    """
+
+    :param df:
+    :return:
+    """
+    pass
+
+
+def parse_dexa_data(df: pd.DataFrame) -> pd.DataFrame:
+    """
+
+    :param df:
+    :return:
+    """
+    pass
+
+
+def parse_internal_audit_data(df: pd.DataFrame) -> pd.DataFrame:
+    """
+
+    :param df:
+    :return:
+    """
+    pass
+
+
+def _save_parsed_data(df: pd.DataFrame, file_name: str, xcom_filename_key: str, ti: object = None) -> None:
+    proc_staging_location = get_default_staging_location(bucket='proc')
+    df.to_csv(os.path.join(proc_staging_location, file_name))
+    ti.xcom_push(key=xcom_filename_key, value=file_name)
 
 
 def set_column_to_int(df: pd.DataFrame, columns: list) -> pd.DataFrame:
@@ -45,13 +225,11 @@ def calculate_par_met_hours():
     pass
 
 
-@read_file_to_df
 def calculate_bmi(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
     df['bmi'] = df['weight_scr_data'] / ((df['height_scr_data'] / 100) ** 2)
     return df
 
 
-@read_file_to_df
 def calculate_bmi_zscore(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
     # parameters: dob, visit_date, sex, bmi
     """
@@ -100,21 +278,21 @@ def calculate_bmi_zscore(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
     return Z, percentile
 
 
-@read_file_to_df
 def calculate_hip_waist_ratio(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
     df['hip_waist_ratio'] = df['hip_scr_data'] / df['waist_scr_data']
     return df
 
 
-@read_file_to_df
 def calculate_homa_ir(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
     df['homa_ir'] = (df['insulin_scr_data'] * df['glucose3_scr_data']) / 405
     return df
 
 
 # 2021/09/10: these are all queries xD  move or ignore these
-def get_opened_survey_count(df: pd.DataFrame) -> pd.DataFrame:
-    return df['record_id'].unique().size
+@read_proc_file('transform.parse-prescreening-data')
+def get_opened_survey_count(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
+    # return df['record_id'].unique().size
+    return df
 
 
 def get_completed_survey_count(df: pd.DataFrame) -> pd.DataFrame:
