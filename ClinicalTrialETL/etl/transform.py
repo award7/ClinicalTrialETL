@@ -2,6 +2,7 @@ import pandas as pd
 import os
 from datetime import datetime
 from ClinicalTrialETL.etl.utils import get_default_staging_location
+from ClinicalTrialETL.redcap_api.api import Events, Forms
 
 
 # decorators
@@ -21,10 +22,11 @@ def parse_raw(func):
         # save modified df to proc location
         proc_staging_location = ti.xcom_pull(key='proc_staging_location',
                                              task_ids='transform.set-proc-staging-location')
-        df.to_csv(os.path.join(proc_staging_location, kwargs['file_name']))
+        df.to_csv(os.path.join(proc_staging_location, kwargs['file_name']), index=False)
 
         # xcom_push file name
         ti.xcom_push(key='file_name', value=file_name)
+
     return wrapper
 
 
@@ -42,14 +44,20 @@ def read_proc_file(task_id):
 
             proc_staging_location = ti.xcom_pull(key='proc_staging_location',
                                                  task_ids='transform.set-proc-staging-location')
-            df.to_csv(os.path.join(proc_staging_location, file_name))
+            df.to_csv(os.path.join(proc_staging_location, file_name), index=False)
 
         return wrapper
+
     return decorator
 
 
 def set_proc_staging_location(ti: object = None, *args, **kwargs) -> None:
-    # xcom_push the proc_staging_location
+    """
+    xcom_push the proc_staging_location
+
+    :param ti: task instance object from airflow
+    :type ti: object
+    """
     proc_staging_location = get_default_staging_location(bucket='proc')
     ti.xcom_push(key='proc_staging_location', value=proc_staging_location)
 
@@ -61,60 +69,63 @@ def parse_prescreening_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
 
 
 @parse_raw
-def parse_consent_data(df: pd.DataFrame) -> pd.DataFrame:
+def parse_consent_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
     """
 
     :param df:
     :return:
     """
-    pass
+    return df
 
 
 @parse_raw
-def parse_demographics_data(df: pd.DataFrame) -> pd.DataFrame:
-    pass
+def parse_demographics_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
+    return df
 
 
 @parse_raw
-def parse_medical_history_data(df: pd.DataFrame) -> pd.DataFrame:
+def parse_medical_history_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
     """
     Parse any data relevant to medical history, including MRI screening questionnaire and concomitant medications
 
     :param df:
     :return:
     """
-    pass
+    return df
 
 
 @parse_raw
-def parse_tanner_data(df: pd.DataFrame) -> pd.DataFrame:
-    pass
+def parse_tanner_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
+    return df
 
 
 @parse_raw
-def parse_par_data(df: pd.DataFrame) -> pd.DataFrame:
-    pass
+def parse_par_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
+    return df
 
 
 @parse_raw
-def parse_screening_data(df: pd.DataFrame) -> pd.DataFrame:
-    pass
+def parse_screening_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
+    return df
 
 
-def parse_eligibility_data(df: pd.DataFrame) -> pd.DataFrame:
-    pass
+@parse_raw
+def parse_eligibility_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
+    return df
 
 
-def parse_cognitive_data(df: pd.DataFrame) -> pd.DataFrame:
+@parse_raw
+def parse_cognitive_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
     """
     Parse the visit encounter details
     :param df:
     :return:
     """
-    pass
+    return df
 
 
-def parse_mri_structural_visit_data(df: pd.DataFrame) -> pd.DataFrame:
+@parse_raw
+def parse_mri_structural_visit_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
     """
     Parse the visit encounter details (e.g. fasting duration, scans that were completed, etc.), not the actual MRI
     analysis
@@ -122,10 +133,11 @@ def parse_mri_structural_visit_data(df: pd.DataFrame) -> pd.DataFrame:
     :param df:
     :return:
     """
-    pass
+    return df
 
 
-def parse_ogtt_visit_data(df: pd.DataFrame) -> pd.DataFrame:
+@parse_raw
+def parse_ogtt_visit_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
     """
     Parse the visit encounter details (e.g. fasting duration, scans that were completed, etc.), not the actual MRI
     analysis
@@ -133,67 +145,73 @@ def parse_ogtt_visit_data(df: pd.DataFrame) -> pd.DataFrame:
     :param df:
     :return:
     """
-    pass
+    return df
 
 
-def parse_deviation_data(df: pd.DataFrame) -> pd.DataFrame:
+@parse_raw
+def parse_deviation_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
     """
 
     :param df:
     :return:
     """
-    pass
+    return df
 
 
-def parse_adverse_event_data(df: pd.DataFrame) -> pd.DataFrame:
+@parse_raw
+def parse_adverse_event_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
     """
 
     :param df:
     :return:
     """
-    pass
+    return df
 
 
-def parse_note_to_file_data(df: pd.DataFrame) -> pd.DataFrame:
+@parse_raw
+def parse_note_to_file_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
     """
 
     :param df:
     :return:
     """
-    pass
+    return df
 
 
-def parse_visit_note_data(df: pd.DataFrame) -> pd.DataFrame:
+@parse_raw
+def parse_visit_note_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
     """
 
     :param df:
     :return:
     """
-    pass
+    return df
 
 
-def parse_dexa_data(df: pd.DataFrame) -> pd.DataFrame:
+@parse_raw
+def parse_dexa_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
     """
 
     :param df:
     :return:
     """
-    pass
+    return df
 
 
-def parse_internal_audit_data(df: pd.DataFrame) -> pd.DataFrame:
+@parse_raw
+def parse_internal_audit_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
     """
 
     :param df:
     :return:
     """
-    pass
+    return df
 
 
-def _save_parsed_data(df: pd.DataFrame, file_name: str, xcom_filename_key: str, ti: object = None) -> None:
-    proc_staging_location = get_default_staging_location(bucket='proc')
-    df.to_csv(os.path.join(proc_staging_location, file_name))
-    ti.xcom_push(key=xcom_filename_key, value=file_name)
+# def _save_parsed_data(df: pd.DataFrame, file_name: str, xcom_filename_key: str, ti: object = None) -> None:
+#     proc_staging_location = get_default_staging_location(bucket='proc')
+#     df.to_csv(os.path.join(proc_staging_location, file_name))
+#     ti.xcom_push(key=xcom_filename_key, value=file_name)
 
 
 def set_column_to_int(df: pd.DataFrame, columns: list) -> pd.DataFrame:

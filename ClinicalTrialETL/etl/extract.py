@@ -61,8 +61,11 @@ def extract_redcap_data(ti: object = None, export_content: str = 'records', file
     json_data = export_content_mapping[export_content](**kwargs)
     df = pd.DataFrame.from_records(json_data)
 
+    # todo: tmp; remove
+    return df
+
     # save file
-    df.to_csv(os.path.join(raw_staging_location, file_name))
+    # df.to_csv(os.path.join(raw_staging_location, file_name))
 
     # do xcom_push if ti != None
     if ti is not None:
@@ -78,7 +81,6 @@ def _get_export_content_mapping():
         'file': api.export_file,
         'form_event_mapping': api.export_form_event_mapping,
         'logging': api.export_logging,
+        'metadata': api.export_metadata,
         'records': api.export_records,
     }
-
-
