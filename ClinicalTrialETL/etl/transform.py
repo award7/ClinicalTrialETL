@@ -208,6 +208,55 @@ def parse_internal_audit_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame
     return df
 
 
+def create_event_form_field_mapping(ti: object = None, *args, **kwargs) -> None:
+    """
+
+    """
+
+    # get file names
+    mapping_file = ti.xcom_pull(key='file_name', task_ids='extract.extract-form-event-mapping')
+    fields_file = ti.xcom_pull(key='file_name', task_ids='extract.extract-field-names')
+    metadata_file = ti.xcom_pull(key='file_name', task_ids='extract.extract-redcap_metadata')
+
+    # get file location
+    mapping_path = ti.xcom_pull(key='raw_staging_location', task_ids='extract.extract-form-event-mapping')
+    fields_path = ti.xcom_pull(key='raw_staging_location', task_ids='extract.extract-field-names')
+    metadata_path = ti.xcom_pull(key='raw_staging_location', task_ids='extract.extract-redcap-metadata')
+
+    # read files into dataframes
+    mapping = pd.read_csv(os.path.join(mapping_path, mapping_file))
+    fields = pd.read_csv(os.path.join(fields_path, fields_file))
+    metadata = pd.read_csv(os.path.join(metadata_path, metadata_file))
+
+    # rename columns for subsequent merging
+    metadata = metadata.rename(columns={'form_name': 'form'})
+    fields = fields.rename(columns={"original_field_name": "field_name"})
+
+    # merge dataframes into one
+    df = metadata.merge(mapping, on='form', how='left')
+    df = df.merge(fields, on='field_name', how='left')
+
+    # drop columns
+    df.drop(['section_header', 'choice_value'], axis=1, inplace=True)
+
+    # rearrange columns
+    cols = df.columns.to_list()
+    order = ['arm_num', 'unique_event_name', 'form', 'field_name', 'export_field_name', 'field_type']
+    other_cols = [col for col in cols if col not in order]
+    order += other_cols
+    df = df[order]
+
+    # save file
+    save_location = ti.xcom_pull(key='proc_staging_location', task_ids='transform.set-proc-staging-location')
+    file_name = 'irb_2019_0361_metadata.csv'
+    df.to_csv(os.path.join(save_location, file_name), index=False)
+
+    # xcom push the file_name and save_location
+    if ti is not None:
+        ti.xcom_push(key='file_name', value=file_name)
+        ti.xcom_push(key='location', value=save_location)
+
+
 # def _save_parsed_data(df: pd.DataFrame, file_name: str, xcom_filename_key: str, ti: object = None) -> None:
 #     proc_staging_location = get_default_staging_location(bucket='proc')
 #     df.to_csv(os.path.join(proc_staging_location, file_name))
