@@ -41,7 +41,7 @@ def extract_redcap_data(ti: object = None, export_content: str = 'records', file
             raise TypeError(f'Invalid value for file_name: {file_name}. Value must be a string.')
 
         # change file to .csv, if needed
-        fname, ext = os.path.splitext(file_name)[-1]
+        fname, ext = os.path.splitext(file_name)
         if ext != f'.{FILE_EXT}':
             print('Converting file name to .csv')
             file_name = f'{fname}.{FILE_EXT}'
@@ -61,11 +61,8 @@ def extract_redcap_data(ti: object = None, export_content: str = 'records', file
     json_data = export_content_mapping[export_content](**kwargs)
     df = pd.DataFrame.from_records(json_data)
 
-    # todo: tmp; remove
-    return df
-
     # save file
-    # df.to_csv(os.path.join(raw_staging_location, file_name))
+    df.to_csv(os.path.join(raw_staging_location, file_name), index=False)
 
     # do xcom_push if ti != None
     if ti is not None:

@@ -65,7 +65,7 @@ class PostAPI:
 
 
 @PostAPI
-def export_arms(arms: list = None, data_format: str = 'json', error_format: str = 'json') -> dict:
+def export_arms(arms: list = None, data_format: str = 'json', error_format: str = 'json', *args, **kwargs) -> dict:
     # todo: add documentation
 
     post = {
@@ -81,7 +81,7 @@ def export_arms(arms: list = None, data_format: str = 'json', error_format: str 
 
 
 @PostAPI
-def export_events(arms: list = None, post_format: str = 'json', data_format: str = 'json'):
+def export_events(arms: list = None, post_format: str = 'json', data_format: str = 'json', *args, **kwargs):
     # todo: add documentation
 
     post = {
@@ -97,7 +97,7 @@ def export_events(arms: list = None, post_format: str = 'json', data_format: str
 
 
 @PostAPI
-def export_field_names(fields: list = None, data_format: str = 'json', error_format: str = 'json'):
+def export_field_names(fields: list = None, data_format: str = 'json', error_format: str = 'json', *args, **kwargs):
     # todo: add documentation
     """
     This method returns a list of the export/import-specific version of field names for all fields (or for one field,
@@ -128,7 +128,8 @@ def export_field_names(fields: list = None, data_format: str = 'json', error_for
 
 
 @PostAPI
-def export_file(record_id: str, field_name: str, event: str, repeat_instance: str, data_format: str = 'json'):
+def export_file(record_id: str, field_name: str, event: str, repeat_instance: str, data_format: str = 'json', *args,
+                **kwargs):
     # todo: add documentation
     """
     This method allows you to download a document that has been attached to an individual record for a File Upload
@@ -158,7 +159,8 @@ def export_file(record_id: str, field_name: str, event: str, repeat_instance: st
 
 
 @PostAPI
-def export_form_event_mapping(arms: list = None, data_format: str = 'json', error_format: str = 'json'):
+def export_form_event_mapping(arms: list = None, data_format: str = 'json', error_format: str = 'json', *args,
+                              **kwargs):
     # todo: add documentation
 
     post = {
@@ -172,7 +174,8 @@ def export_form_event_mapping(arms: list = None, data_format: str = 'json', erro
 
 
 @PostAPI
-def export_metadata(fields: list = None, forms: list = None, data_format: str = 'json', error_format: str = 'json'):
+def export_metadata(fields: list = None, forms: list = None, data_format: str = 'json', error_format: str = 'json',
+                    *args, **kwargs):
     # todo: add documentation
 
     post = {
@@ -195,7 +198,7 @@ def export_metadata(fields: list = None, forms: list = None, data_format: str = 
 @PostAPI
 def export_logging(log_type: str = 'all', user: str = None, record_id: str = None, dag: str = None,
                    begin_time: str = None, end_time: str = None, data_format: str = 'json',
-                   error_format: str = 'json'):
+                   error_format: str = 'json', *args, **kwargs):
     """
     This method allows you to export the logging (audit trail) of all changes made to this project, including data
     exports, data changes, project metadata changes, modification of user rights, etc.
@@ -257,7 +260,7 @@ def export_records(records: list = None, fields: list = None, forms: list = None
                    export_survey_fields: bool = False, export_dags: bool = False, filter_logic: str = None,
                    date_range_begin: str = None, date_range_end: str = None, csv_delimiter: str = 'comma',
                    decimal_char: str = None, return_type: str = 'flat', data_format: str = 'json',
-                   error_format: str = 'json', **kwargs) -> dict:
+                   error_format: str = 'json', *args, **kwargs) -> dict:
     """This method allows you to export a set of records for a project.
 
     :param records: An array of record names specifying specific records you wish to pull. If 'None', all records will
@@ -435,7 +438,8 @@ def export_records(records: list = None, fields: list = None, forms: list = None
 @PostAPI
 def import_records(data: dict, records: list = None, overwrite: bool = False, auto_number: bool = False,
                    data_type: str = 'flat', date_format: str = 'YMD', return_content: str = 'count',
-                   csv_delimiter: str = 'comma', data_format: str = 'json', error_format: str = 'json'):
+                   csv_delimiter: str = 'comma', data_format: str = 'json', error_format: str = 'json', *args,
+                   **kwargs):
     # todo: add documentation
 
     post = {

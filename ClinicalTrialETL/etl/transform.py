@@ -216,7 +216,7 @@ def create_event_form_field_mapping(ti: object = None, *args, **kwargs) -> None:
     # get file names
     mapping_file = ti.xcom_pull(key='file_name', task_ids='extract.extract-form-event-mapping')
     fields_file = ti.xcom_pull(key='file_name', task_ids='extract.extract-field-names')
-    metadata_file = ti.xcom_pull(key='file_name', task_ids='extract.extract-redcap_metadata')
+    metadata_file = ti.xcom_pull(key='file_name', task_ids='extract.extract-redcap-metadata')
 
     # get file location
     mapping_path = ti.xcom_pull(key='raw_staging_location', task_ids='extract.extract-form-event-mapping')
@@ -255,6 +255,31 @@ def create_event_form_field_mapping(ti: object = None, *args, **kwargs) -> None:
     if ti is not None:
         ti.xcom_push(key='file_name', value=file_name)
         ti.xcom_push(key='location', value=save_location)
+
+
+def remove_old_files(ti: object = None, n_days: int = -7, key: str = None, task_ids: list = None, *args,
+                     **kwargs) -> None:
+    """
+    remove files from directory (e.g. /bucket) that are older than n days old
+    """
+
+    # get path to staging location
+    if ti is not None:
+        path = ti.xcom_pull(key=key, task_ids=task_ids)
+
+    # get unique paths and cast to string
+    path = str(set(path))
+
+    # find all files in path
+    for root, directories, files in os.walk(path, topdown=False):
+        for file in files:
+            # get file last modified time and compare to today date
+            file_details = os.stat(os.path.join(root, file))
+            age = datetime.fromtimestamp(file_details.st_mtime) - datetime.today()
+
+            # remove if more than n days different
+            if age.days <= n_days:
+                os.remove(os.path.join(root, file))
 
 
 # def _save_parsed_data(df: pd.DataFrame, file_name: str, xcom_filename_key: str, ti: object = None) -> None:
