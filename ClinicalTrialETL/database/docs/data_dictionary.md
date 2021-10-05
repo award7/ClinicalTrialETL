@@ -455,7 +455,7 @@ last_name | NCHAR(255) | NO | | Last name |
 | --- | --- | --- | --- | --- |
 | subject_id | SMALLINT | NO | Primary Key | Identity |
 | subject | VARCHAR(255) | NO | Unique | Subject ID used in study |
-| age | TINYINT | YES | 18 >= `age` >= 12 | Age of subject |
+| age | TINYINT | YES | 12 <= `age` <= 18 | Age of subject |
 | sex | TINYINT | YES | Foreign Key | Links biological sex |
 | race | TINYINT | YES | Foreign Key | Links race |
 | ethnicity | TINYINT | YES | Foreign Key | Links ethnicity |

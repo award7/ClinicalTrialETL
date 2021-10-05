@@ -2,210 +2,226 @@ import pandas as pd
 import os
 from datetime import datetime
 from ClinicalTrialETL.etl.utils import get_default_staging_location
-from ClinicalTrialETL.redcap_api.api import Events, Forms
+from numpy import nan
 
 
-# decorators
-def parse_raw(func):
-    def wrapper(*args, **kwargs):
+class BaseCleaner:
+    def __init__(self):
+        self.df = None
+
+    def to_int(self, cols: list) -> None:
+        self.df[cols] = self.df[cols].apply(pd.to_numeric, downcast='integer', errors='coerce')
+
+    def to_float(self, cols: list) -> None:
+        self.df[cols] = self.df[cols].apply(pd.to_numeric, downcast='float', errors='coerce')
+
+    def to_str(self, cols: list) -> None:
+        self.df[cols] = self.df[cols].astype(str)
+
+    def to_title_case(self, cols: list) -> None:
+        self.df[cols] = self.df[cols].str.title()
+
+    def to_sentence_case(self, cols: list) -> None:
+        self.df[cols] = self.df[cols].str.capitalize()
+
+    def to_lower_case(self, cols: list) -> None:
+        self.df[cols] = self.df[cols].str.lower()
+
+    def to_upper_case(self, cols: list) -> None:
+        self.df[cols] = self.df[cols].str.upper()
+
+    def to_datetime(self, cols: list, date_format: str = '%m/%d/%Y') -> None:
+        self.df[cols] = self.df[cols].apply(pd.to_datetime)
+        self.df[cols] = self.df[cols].dt.strftime(date_format)
+
+    def fill_na(self) -> None:
+        """
+        replace blank entries with nan
+        """
+        self.df = self.df.replace(r'^\s*$', nan, regex=True)
+
+    def str2na(self) -> None:
+        """
+        replace user-input variations of nan with nan
+        :return: None
+        """
+
+        self.df = self.df.replace(r'^[nN]\W?[aA]$', nan, regex=True)
+
+    def get_columns(self, substring: str) -> list:
+        """
+        return all columns with a given substring
+
+        :param df:
+        :param substring:
+        :return:
+        """
+        return [col for col in self.df.columns.to_list() if substring in col]
+
+
+class CleanDemographicsData(BaseCleaner):
+    def __init__(self):
+        super().__init__()
+        self.df = None
+        self.df_survey = None
+        self.df_yogtt004 = None
+
+    def __call__(self, *args, **kwargs):
+        # create df's
+        self.df_survey = self.read_demo_survey(ti=kwargs['ti'])
+        self.df_yogtt004 = self.read_yogtt004(ti=kwargs['ti'])
+
+        # remove '_survey' from column names for merging
+        self.df_survey.columns = [col.replace('_survey', '') for col in self.df_survey.columns.to_list()]
+
+        # todo: merge the two 'complete' columns into one
+
+        # merge
+        self.df = pd.concat([self.df_survey, self.df_yogtt004], axis=0, ingore_index=True)
+
+        # replace blank entries with nan
+        self.fill_na()
+
+        # replace user-input variations of nan with nan
+        self.str2na()
+
+        # replace any middle names with just the initial
+        self.df['m_name_demo'] = self.df['m_name_demo'].str.get(0)
+
+        # todo: split name2_demo (i.e. parent name) to f_name and l_name columns
+
+        # capitalize proper nouns
+        # self.capitalize_proper_nouns()
+
+        # make email all lower case
+        # cols = ['email1_demo', 'email2_demo']
+        # self.df[cols] = self.df[cols].apply(lambda x: x.lower())
+
+        # reformat dates to mm/dd/yyyy
+        cols = [
+            'date_demo',
+            'version_date_demo',
+            'birth_date_demo',
+            'completed_date_demo'
+        ]
+        self.df[cols] = pd.to_datetime(self.df[cols])
+        self.df[cols] = self.df[cols].dt.strftime('%m/%d/%Y')
+
+        # todo: convert state name to 2-letter state code
+        # todo: apply regex to remove extraneous whitespaces
+        # todo: format phone number
+        # todo: ensure db has proper code mapping for race, ethnicity, etc.
+
+    def capitalize_proper_nouns(self):
+        cols = [
+            'f_name_demo',
+            'm_name_demo',
+            'l_name_demo',
+            'address1_demo',
+            'city1_demo',
+            'address2_demo',
+            'city2_demo'
+        ]
+        self.df[cols] = self.df[cols].appply(lambda x: x.title())
+
+    def read_demo_survey(self, ti: object) -> pd.DataFrame:
+        path = ti.xcom_pull(key='raw_staging_location', task_ids='')
+        file_name = ti.xcom_pull(key='file_name', task_ids='')
+        return pd.read_csv(os.path.join(path, file_name))
+
+    def read_yogtt004(self, ti: object) -> pd.DataFrame:
+        path = ti.xcom_pull(key='raw_staging_location', task_ids='')
+        file_name = ti.xcom_pull(key='file_name', task_ids='')
+        return pd.read_csv(os.path.join(path, file_name))
+
+
+class CleanScreeningData(BaseCleaner):
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+        self.df = None
+        self.raw_staging_location = None
+        self.proc_staging_location = None
+
+    def __call__(self, *args, **kwargs):
         ti = kwargs['ti']
 
-        # read raw file into df
-        raw_staging_location = ti.xcom_pull(key='raw_staging_location', task_ids='extract.extract-redcap-data-full')
-        raw_file_name = ti.xcom_pull(key='file_name', task_ids='extract.extract-redcap-data-full')
-        df = pd.read_csv(os.path.join(raw_staging_location, raw_file_name))
+        # todo: pass keys and task_ids as kwargs??
+        self.raw_staging_location = ti.xcom_pull(key='raw_staging_location', task_ids='')
+        self.proc_staging_location = ti.xcom_pull(key='proc_staging_location', task_ids='')
 
-        # call wrapped function
-        file_name = kwargs['file_name']
-        df = func(df, *args, **kwargs)
+        # todo: read csv to df
 
-        # save modified df to proc location
-        proc_staging_location = ti.xcom_pull(key='proc_staging_location',
-                                             task_ids='transform.set-proc-staging-location')
-        df.to_csv(os.path.join(proc_staging_location, kwargs['file_name']), index=False)
+        # todo: convert columns to appropriate data types
+        date_columns = self.get_columns('date')
 
-        # xcom_push file name
-        ti.xcom_push(key='file_name', value=file_name)
+        # todo: apply filters
 
-    return wrapper
+        # todo: apply transforms
 
+        # todo: save cleaned df to proc location
 
-def read_proc_file(task_id):
-    def decorator(func):
-        def wrapper(*args, **kwargs):
-            ti = kwargs['ti']
-            proc_staging_location = ti.xcom_pull(key='proc_staging_location',
-                                                 task_ids='transform.set-proc-staging-location')
-            file_name = ti.xcom_pull(key='file_name', task_ids=task_id)
-            print(f'task_id: {task_id}')
-            df = pd.read_csv(os.path.join(proc_staging_location, file_name))
+    def clean_screening_data(self, *args, **kwargs) -> pd.DataFrame:
+        # todo: do xcom_pull for y-ogtt-002 csv and y-ogtt-009 csv file names and locations
 
-            df = func(df, *args, **kwargs)
+        df_yogtt002 = pd.DataFrame({'foo': 'bar'})
+        df_yogtt009 = pd.DataFrame({'foo': 'bar'})
 
-            proc_staging_location = ti.xcom_pull(key='proc_staging_location',
-                                                 task_ids='transform.set-proc-staging-location')
-            df.to_csv(os.path.join(proc_staging_location, file_name), index=False)
+        # convert columns to int
+        # get columns that need conversion for df_yogtt002
+        lst = df_yogtt002.columns.to_list()
+        to_ignore = ['redcap_event_name', 'redcap_repeat_instrument', 'redcap_repeat_instance', 'last_food_scr',
+                     'duration_scr', 'upload_scr']
+        substring = 'date'
+        date_cols = [col for col in lst if substring in col]
+        to_ignore = to_ignore + date_cols
+        cols = [x for x in lst if x not in to_ignore]
+        df_yogtt002[cols] = df_yogtt002[cols].apply(pd.to_numeric, downcast='integer', errors='coerce')
 
-        return wrapper
+        # get columns that need conversion for df_yogtt002
+        lst = df_yogtt009.columns.to_list()
+        to_ignore = ['redcap_event_name',
+                     'redcap_repeat_instrument',
+                     'redcap_repeat_instance',
+                     'height_scr_data',
+                     'weight_scr_data',
+                     'hba1c1_scr_data',
+                     'hba1c2_scr_data',
+                     'hba1c3_scr_data',
+                     'wcc_scr_data',
+                     'rcc_scr_data',
+                     'hb_scr_data',
+                     'rdwsd_scr_data',
+                     'rdwcv_scr_data',
+                     'vo2_abs_scr_data',
+                     'vo2_rel_scr_data',
+                     'vo2_plateau_scr_data',
+                     'vo2_rer_scr_data',
+                     'completed_by_scr_data',
+                     'upload_scr_data'
+                     ]
+        date_cols = [col for col in lst if substring in col]
+        to_ignore = to_ignore + date_cols
+        cols = [x for x in lst if x not in to_ignore]
+        df_yogtt002[cols] = df_yogtt002[cols].apply(pd.to_numeric, downcast='integer', errors='coerce')
 
-    return decorator
+        # todo: convert columns to float
 
+        # remove records that never made it to in-person screening
+        df_yogtt002 = df_yogtt002[df_yogtt002['yogtt002_screening_visit_checklist_complete'] > 0]
+        df_yogtt009 = df_yogtt009[df_yogtt009['yogtt009_screening_visit_data_collection_form_complete'] > 0]
 
-def set_proc_staging_location(ti: object = None, *args, **kwargs) -> None:
-    """
-    xcom_push the proc_staging_location
+        return df_yogtt002
 
-    :param ti: task instance object from airflow
-    :type ti: object
-    """
-    proc_staging_location = get_default_staging_location(bucket='proc')
-    ti.xcom_push(key='proc_staging_location', value=proc_staging_location)
+    def filter_completed(self) -> None:
+        pass
 
-
-# parsing functions
-@parse_raw
-def parse_prescreening_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
-    return df
-
-
-@parse_raw
-def parse_consent_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
-    """
-
-    :param df:
-    :return:
-    """
-    return df
-
-
-@parse_raw
-def parse_demographics_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
-    return df
-
-
-@parse_raw
-def parse_medical_history_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
-    """
-    Parse any data relevant to medical history, including MRI screening questionnaire and concomitant medications
-
-    :param df:
-    :return:
-    """
-    return df
+    def calculate_homa_ir(self) -> None:
+        pass
 
 
-@parse_raw
-def parse_tanner_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
-    return df
-
-
-@parse_raw
-def parse_par_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
-    return df
-
-
-@parse_raw
-def parse_screening_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
-    return df
-
-
-@parse_raw
-def parse_eligibility_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
-    return df
-
-
-@parse_raw
-def parse_cognitive_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
-    """
-    Parse the visit encounter details
-    :param df:
-    :return:
-    """
-    return df
-
-
-@parse_raw
-def parse_mri_structural_visit_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
-    """
-    Parse the visit encounter details (e.g. fasting duration, scans that were completed, etc.), not the actual MRI
-    analysis
-
-    :param df:
-    :return:
-    """
-    return df
-
-
-@parse_raw
-def parse_ogtt_visit_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
-    """
-    Parse the visit encounter details (e.g. fasting duration, scans that were completed, etc.), not the actual MRI
-    analysis
-
-    :param df:
-    :return:
-    """
-    return df
-
-
-@parse_raw
-def parse_deviation_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
-    """
-
-    :param df:
-    :return:
-    """
-    return df
-
-
-@parse_raw
-def parse_adverse_event_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
-    """
-
-    :param df:
-    :return:
-    """
-    return df
-
-
-@parse_raw
-def parse_note_to_file_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
-    """
-
-    :param df:
-    :return:
-    """
-    return df
-
-
-@parse_raw
-def parse_visit_note_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
-    """
-
-    :param df:
-    :return:
-    """
-    return df
-
-
-@parse_raw
-def parse_dexa_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
-    """
-
-    :param df:
-    :return:
-    """
-    return df
-
-
-@parse_raw
-def parse_internal_audit_data(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
-    """
-
-    :param df:
-    :return:
-    """
-    return df
+class CleanMriStructuralData(BaseCleaner):
+    def __init__(self):
+        self.df = None
 
 
 def create_event_form_field_mapping(ti: object = None, *args, **kwargs) -> None:
@@ -234,7 +250,7 @@ def create_event_form_field_mapping(ti: object = None, *args, **kwargs) -> None:
 
     # merge dataframes into one
     df = metadata.merge(mapping, on='form', how='left')
-    df = df.merge(fields, on='field_name', how='left')
+    df = fields.merge(df, on='field_name', how='left')
 
     # drop columns
     df.drop(['section_header', 'choice_value'], axis=1, inplace=True)
@@ -245,6 +261,16 @@ def create_event_form_field_mapping(ti: object = None, *args, **kwargs) -> None:
     other_cols = [col for col in cols if col not in order]
     order += other_cols
     df = df[order]
+
+    # because the REDCap API does not export a nice, full metadata listing, certain export fields are not associated
+    # with an arm, event, or form*. So we need to do some workarounds to establish these associations.
+    # *Note: it appears to only be [form]_complete fields, so we'll match on that
+
+    # find export_field_name with an nan for form
+    missing_forms = df[df['form'].isna()]
+    # fill in the form by dropping '_complete' from the 'field_name'
+    missing_forms.loc[missing_forms['form'].isna(), 'form'] = missing_forms['field_name'].str.replace('_complete', '')
+
 
     # save file
     save_location = ti.xcom_pull(key='proc_staging_location', task_ids='transform.set-proc-staging-location')
@@ -282,35 +308,61 @@ def remove_old_files(ti: object = None, n_days: int = -7, key: str = None, task_
                 os.remove(os.path.join(root, file))
 
 
-# def _save_parsed_data(df: pd.DataFrame, file_name: str, xcom_filename_key: str, ti: object = None) -> None:
-#     proc_staging_location = get_default_staging_location(bucket='proc')
-#     df.to_csv(os.path.join(proc_staging_location, file_name))
-#     ti.xcom_push(key=xcom_filename_key, value=file_name)
+def clean_demographics_data(df_survey: pd.DataFrame, df_form: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
+    # remove '_survey' from column names for merging
+    df_survey.columns = [col.replace('_survey', '') for col in df_survey.columns.to_list()]
 
+    # merge
+    df = pd.concat([df_survey, df_form], axis=0, ingore_index=True)
 
-def set_column_to_int(df: pd.DataFrame, columns: list) -> pd.DataFrame:
-    for col in columns:
-        df[col] = df[col].apply(pd.to_numeric, downcast='integer', errors='coerce')
+    # remove non-completed forms
+    # todo: merge the two 'complete' columns into one
+    df = df[df['yogtt004_demographics_complete'] == '2']
+
+    # replace blank entries with nan
+    df = df.replace(r'^\s*$', nan, regex=True)
+
+    # replace user-input variations of nan with nan
+    df = df.replace(r'^[nN]\W?[aA]$', nan, regex=True)
+
+    # replace any middle names with just the initial
+    df['m_name_demo'] = df['m_name_demo'].str.get(0)
+
+    # todo: split name2_demo (i.e. parent name) to f_name and l_name columns
+
+    # capitalize proper nouns
+    cols = [
+        'f_name_demo',
+        'm_name_demo',
+        'l_name_demo',
+        'address1_demo',
+        'city1_demo',
+        'address2_demo',
+        'city2_demo'
+    ]
+    df[cols] = df[cols].appply(lambda x: x.title())
+
+    # make email all lower case
+    cols = ['email1_demo', 'email2_demo']
+    df[cols] = df[cols].apply(lambda x: x.lower())
+
+    # reformat dates to mm/dd/yyyy
+    cols = [
+        'date_demo',
+        'version_date_demo',
+        'birth_date_demo',
+        'completed_date_demo'
+    ]
+    df[cols] = pd.to_datetime(df[cols])
+    df[cols] = df[cols].dt.strftime('%m/%d/%Y')
+
+    # convert state name to 2-letter state code
+    # todo: apply regex to remove extraneous whitespaces
+
+    # todo: format phone number
+
+    # todo: ensure db has proper code mapping for race, ethnicity, etc.
     return df
-
-
-def set_column_to_float(df: pd.DataFrame, columns: list) -> pd.DataFrame:
-    for col in columns:
-        df[col] = df[col].apply(pd.to_numeric, downcast='float', errors='coerce')
-    return df
-
-
-def set_column_to_str():
-    pass
-
-
-def set_column_to_datetime(df: pd.DataFrame, columns: list) -> pd.DataFrame:
-    df[columns] = df[columns].apply(pd.to_datetime)
-    return df
-
-
-def add_na():
-    pass
 
 
 def calculate_par_met_hours():
@@ -324,50 +376,51 @@ def calculate_bmi(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
 
 def calculate_bmi_zscore(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
     # parameters: dob, visit_date, sex, bmi
-    """
-    Calculate the BMI z-score and percentile for each subject
-
-    https://www.cdc.gov/growthcharts/percentile_data_files.htm
-
-    :param df:
-    :param args:
-    :param kwargs:
-    :return:
-    """
-
-    # todo: put this on github and read into df
-    df_cdc = pd.DataFrame('cdc_growth_data.csv')
-
-    # calculate the age with month precision at time of visit
-    dob = datetime.strptime(dob, '%m/%d/%Y')
-    visit_date = datetime.strptime(visit_date, '%m/%d/%Y')
-    age = (visit_date.year - dob.year) * 12 + visit_date.month - dob.month
-
-    # get M, S, Z regression coefficients
-    M = df_cdc.loc[(df_cdc['age_(months)'] == age) & (df_cdc['sex'] == sex)]['M'].values
-    S = df_cdc.loc[(df_cdc['age_(months)'] == age) & (df_cdc['sex'] == sex)]['S'].values
-    Z = np.round(math.log(bmi / M) / S, 2)
-
-    if Z > 0:
-        fname_ztable = 'ztable_positive.csv'
-        if len(str(Z)[1:-1]) < 4:
-            zx = 'zx0'
-        else:
-            zx = 'zx' + str(Z)[-2]
-    else:
-        fname_ztable = 'ztable_negative.csv'
-        if len(str(Z)[1:-1]) < 5:
-            zx = 'zx0'
-        else:
-            zx = 'zx' + str(Z)[-2]
-
-    zy = str(Z)[1:-2]
-
-    # save file
-    path_ztable = os.path.join('C:/Users', username, 'Box\PHI_Data-A1760-Schrage\IRB_2019_0361\data', fname_ztable)
-    df_ztable = pd.read_csv(path_ztable)
-    percentile = df_ztable.loc[df_ztable['zy'] == zy][zx].values
-    return Z, percentile
+    # """
+    # Calculate the BMI z-score and percentile for each subject
+    #
+    # https://www.cdc.gov/growthcharts/percentile_data_files.htm
+    #
+    # :param df:
+    # :param args:
+    # :param kwargs:
+    # :return:
+    # """
+    #
+    # # todo: put this on github and read into df
+    # df_cdc = pd.DataFrame('cdc_growth_data.csv')
+    #
+    # # calculate the age with month precision at time of visit
+    # dob = datetime.strptime(dob, '%m/%d/%Y')
+    # visit_date = datetime.strptime(visit_date, '%m/%d/%Y')
+    # age = (visit_date.year - dob.year) * 12 + visit_date.month - dob.month
+    #
+    # # get M, S, Z regression coefficients
+    # M = df_cdc.loc[(df_cdc['age_(months)'] == age) & (df_cdc['sex'] == sex)]['M'].values
+    # S = df_cdc.loc[(df_cdc['age_(months)'] == age) & (df_cdc['sex'] == sex)]['S'].values
+    # Z = np.round(math.log(bmi / M) / S, 2)
+    #
+    # if Z > 0:
+    #     fname_ztable = 'ztable_positive.csv'
+    #     if len(str(Z)[1:-1]) < 4:
+    #         zx = 'zx0'
+    #     else:
+    #         zx = 'zx' + str(Z)[-2]
+    # else:
+    #     fname_ztable = 'ztable_negative.csv'
+    #     if len(str(Z)[1:-1]) < 5:
+    #         zx = 'zx0'
+    #     else:
+    #         zx = 'zx' + str(Z)[-2]
+    #
+    # zy = str(Z)[1:-2]
+    #
+    # # save file
+    # path_ztable = os.path.join('C:/Users', username, 'Box\PHI_Data-A1760-Schrage\IRB_2019_0361\data', fname_ztable)
+    # df_ztable = pd.read_csv(path_ztable)
+    # percentile = df_ztable.loc[df_ztable['zy'] == zy][zx].values
+    # return Z, percentile
+    return df
 
 
 def calculate_hip_waist_ratio(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
@@ -380,80 +433,96 @@ def calculate_homa_ir(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
     return df
 
 
-# 2021/09/10: these are all queries xD  move or ignore these
-@read_proc_file('transform.parse-prescreening-data')
-def get_opened_survey_count(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
-    # return df['record_id'].unique().size
-    return df
+def _state_abbreviation_mapping() -> dict:
+    return {
+        "Alabama": "AL",
+        "Alaska": "AK",
+        "Arizona": "AZ",
+        "Arkansas": "AR",
+        "California": "CA",
+        "Colorado": "CO",
+        "Connecticut": "CT",
+        "Delaware": "DE",
+        "Florida": "FL",
+        "Georgia": "GA",
+        "Hawaii": "HI",
+        "Idaho": "ID",
+        "Illinois": "IL",
+        "Indiana": "IN",
+        "Iowa": "IA",
+        "Kansas": "KS",
+        "Kentucky": "KY",
+        "Louisiana": "LA",
+        "Maine": "ME",
+        "Maryland": "MD",
+        "Massachusetts": "MA",
+        "Michigan": "MI",
+        "Minnesota": "MN",
+        "Mississippi": "MS",
+        "Missouri": "MO",
+        "Montana": "MT",
+        "Nebraska": "NE",
+        "Nevada": "NV",
+        "New Hampshire": "NH",
+        "New Jersey": "NJ",
+        "New Mexico": "NM",
+        "New York": "NY",
+        "North Carolina": "NC",
+        "North Dakota": "ND",
+        "Ohio": "OH",
+        "Oklahoma": "OK",
+        "Oregon": "OR",
+        "Pennsylvania": "PA",
+        "Rhode Island": "RI",
+        "South Carolina": "SC",
+        "South Dakota": "SD",
+        "Tennessee": "TN",
+        "Texas": "TX",
+        "Utah": "UT",
+        "Vermont": "VT",
+        "Virginia": "VA",
+        "Washington": "WA",
+        "West Virginia": "WV",
+        "Wisconsin": "WI",
+        "Wyoming": "WY",
+        "District of Columbia": "DC",
+        "American Samoa": "AS",
+        "Guam": "GU",
+        "Northern Mariana Islands": "MP",
+        "Puerto Rico": "PR",
+        "United States Minor Outlying Islands": "UM",
+        "U.S. Virgin Islands": "VI",
+    }
 
 
-def get_completed_survey_count(df: pd.DataFrame) -> pd.DataFrame:
-    return df.loc[df['insulin_resistance_in_adolescents_survey_complete'] == '2'].shape[0]
+# decorators
+def read_proc_file(task_id):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            ti = kwargs['ti']
+            proc_staging_location = ti.xcom_pull(key='proc_staging_location',
+                                                 task_ids='transform.set-proc-staging-location')
+            file_name = ti.xcom_pull(key='file_name', task_ids=task_id)
+            print(f'task_id: {task_id}')
+            df = pd.read_csv(os.path.join(proc_staging_location, file_name))
+
+            df = func(df, *args, **kwargs)
+
+            proc_staging_location = ti.xcom_pull(key='proc_staging_location',
+                                                 task_ids='transform.set-proc-staging-location')
+            df.to_csv(os.path.join(proc_staging_location, file_name), index=False)
+
+        return wrapper
+
+    return decorator
 
 
-def get_consent_count(df: pd.DataFrame) -> pd.DataFrame:
-    return df.loc[df['consent_status_consent'] == '1'].shape[0]
+def set_proc_staging_location(ti: object = None, *args, **kwargs) -> None:
+    """
+    xcom_push the proc_staging_location
 
-
-def get_screening_count(df: pd.DataFrame) -> pd.DataFrame:
-    return df.loc[df['completed_date_scr'].notna()].shape[0]
-
-
-def get_eligible_screen_count(df: pd.DataFrame) -> pd.DataFrame:
-    return df.loc[df['qualify_scr'] == '1'].shape[0]
-
-
-def get_ineligible_screen_count(df: pd.DataFrame) -> pd.DataFrame:
-    return df.loc[df['qualify_scr'] == '0'].shape[0]
-
-
-def get_cognitive_visit_count(df: pd.DataFrame) -> pd.DataFrame:
-    return df.loc[df['date_cog'].notna()].shape[0]
-
-
-def get_1hr_mri_visit_count(df: pd.DataFrame) -> pd.DataFrame:
-    return df.loc[df['date_mri'].notna()].shape[0]
-
-
-def get_1hr_mri_visit_asl_count(df: pd.DataFrame) -> pd.DataFrame:
-    return df.loc[df['asl_mri'] == '1'].shape[0]
-
-
-def get_1hr_mri_visit_vipr_count(df: pd.DataFrame) -> pd.DataFrame:
-    return df.loc[df['vipr_mri'] == '1'].shape[0]
-
-
-def get_1hr_mri_visit_t1_count(df: pd.DataFrame) -> pd.DataFrame:
-    # todo: get proper field name
-    return df.loc[df['madni3t_mri'] == '1'].shape[0]
-
-
-def get_ogtt_visit_count(df: pd.DataFrame) -> pd.DataFrame:
-    return df.loc[df['date_ogtt'].notna()].shape[0]
-
-
-def get_tanner_score(df: pd.DataFrame, include_ineligilbe: bool = False) -> pd.DataFrame:
-    # todo: do filter logic to account for males and females
-    # filter males vs. females, get average tanner scores
-    # males = 0
-    # females = 1
-    filtered_for_positive_responses = df.loc[(df['gender_demo_survey'] == '0') |
-                                             (df['gender_demo_survey'] == '1') |
-                                             (df['gender_demo'] == '0') |
-                                             (df['gender_demo'] == '1')]
-    males = df['record_id'].loc[(df['gender_demo_survey'] == '0') |
-                                (df['gender_demo'] == '0') &
-                                (df['qualify_scr'] == '1')].unique()
-    average_male_tanner_score = males['']
-    females = ''
-    average_female_tanner_score = ''
-    average_tanner_score_both_sexes = ''
-    return df.loc[df['vipr_mri'] == '1'].shape[0]
-
-
-def get_screening_glucose(df: pd.DataFrame) -> pd.DataFrame:
-    return df[['record_id', 'glucose3_scr_data']].loc[df['glucose3_scr_data'].notna()]
-
-
-def get_screening_insulin(df: pd.DataFrame) -> pd.DataFrame:
-    return df[['record_id', 'insulin_scr_data']].loc[df['insulin_scr_data'].notna()]
+    :param ti: task instance object from airflow
+    :type ti: object
+    """
+    proc_staging_location = get_default_staging_location(bucket='proc')
+    ti.xcom_push(key='proc_staging_location', value=proc_staging_location)
