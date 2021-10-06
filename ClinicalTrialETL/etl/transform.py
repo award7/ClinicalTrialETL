@@ -59,6 +59,13 @@ class BaseCleaner:
         """
         return [col for col in self.df.columns.to_list() if substring in col]
 
+    def transform_subject_id(self) -> None:
+        # make standardized study id
+        col = 'record_id'
+        if not pd.api.types.is_string_dtype(self.df[col]):
+            self.df[col] = self.df[col].astype(str)
+        self.df[col] = self.df[col].apply('0361_{:0>4}'.format)
+
 
 class CleanDemographicsData(BaseCleaner):
     def __init__(self):
@@ -100,6 +107,7 @@ class CleanDemographicsData(BaseCleaner):
 
     def df2csv(self, **kwargs) -> None:
         # pass the keys and task_ids as kwargs
+        # todo: set the key and task_ids variables
         ti = kwargs['ti']
         path = ti.xcom_pull(key='', task_ids='')
         file_name = ti.xcom_pull(key='', task_ids='')
@@ -107,6 +115,7 @@ class CleanDemographicsData(BaseCleaner):
 
     def csv2df(self, **kwargs) -> None:
         # pass the keys and task_ids as kwargs
+        # todo: set the key and task_ids variables
         ti = kwargs['ti']
         path = ti.xcom_pull(key='', task_ids='')
         file_name = ti.xcom_pull(key='', task_ids='')
@@ -138,10 +147,6 @@ class CleanDemographicsData(BaseCleaner):
         # since we are combining alike data from two forms, we will fill in the data for one form from the other form
         self.df['gender_demo'].fillna(self.df['gender_demo_survey'], inplace=True)
         self.map_sex()
-
-    def transform_subject_id(self) -> None:
-        # make standardized study id
-        self.df['record_id'] = self.df['record_id'].apply('0361_{:0>4}'.format)
 
     def transform_zip_code(self) -> None:
         conditions = [~pd.isna(self.df['zip2_demo']), ~pd.isna(self.df['zip2_demo_survey'])]
@@ -235,87 +240,159 @@ class CleanDemographicsData(BaseCleaner):
         self.df['ethnicity'] = self.df['ethnicity2_demo'].map(mapping)
 
 
+class CleanBmiGrowthChart(BaseCleaner):
+    def __init__(self):
+        super().__init__()
+        self.df = None
+
+    def __call__(self, *args, **kwargs):
+        self.csv2df()
+
+        # there's a row of headers to denote the different sex. Remove it
+        idx = 219
+        self.df.drop(idx, axis=0, inplace=True)
+
+        self.map_sexes()
+        float_cols = self.get_float_columns()
+        self.to_float(float_cols)
+
+        return self.df
+
+    def csv2df(self) -> None:
+        self.df = pd.read_csv('https://www.cdc.gov/growthcharts/data/zscore/bmiagerev.csv')
+
+    @staticmethod
+    def get_sex_mapping() -> dict:
+        return {
+            1: 'Male',
+            2: 'Female'
+        }
+
+    def map_sexes(self) -> None:
+        mapping = self.get_sex_mapping()
+        self.df['Sex'] = self.df['Sex'].map(mapping)
+
+    def get_float_columns(self) -> list:
+        to_ignore = ['Sex']
+        return [col for col in self.df.columns.to_list() if col not in to_ignore]
+
+
 class CleanScreeningData(BaseCleaner):
     def __init__(self, *args, **kwargs):
         super().__init__()
         self.df = None
-        self.raw_staging_location = None
-        self.proc_staging_location = None
 
     def __call__(self, *args, **kwargs):
+        self.csv2df(**kwargs)
+        cols = self.get_persistent_columns()
+        self.df = self.df.filter(cols)
+
+        # todo: join `dob` and 'sex` columns from demographics
+
+        self.fill_na()
+        self.str2na()
+
+        # type casting
+        float_cols = self.get_float_columns()
+        int_cols = self.get_int_columns(float_cols)
+        int_cols.remove('date_scr_data')
+        self.to_int(int_cols)
+        self.to_float(float_cols)
+        self.to_datetime(['date_scr_data'])
+
+        self.transform_subject_id()
+
+        self.df2csv(**kwargs)
+
+    def df2csv(self, **kwargs) -> None:
+        # pass the keys and task_ids as kwargs
+        # todo: set the key and task_ids variables
         ti = kwargs['ti']
+        path = ti.xcom_pull(key='', task_ids='')
+        file_name = ti.xcom_pull(key='', task_ids='')
+        self.df.to_csv(os.path.join(path, file_name))
 
-        # todo: pass keys and task_ids as kwargs??
-        self.raw_staging_location = ti.xcom_pull(key='raw_staging_location', task_ids='')
-        self.proc_staging_location = ti.xcom_pull(key='proc_staging_location', task_ids='')
+    def csv2df(self, **kwargs) -> None:
+        # pass the keys and task_ids as kwargs
+        # todo: set the key and task_ids variables
+        ti = kwargs['ti']
+        path = ti.xcom_pull(key='', task_ids='')
+        file_name = ti.xcom_pull(key='', task_ids='')
+        self.df = pd.read_csv(os.path.join(path, file_name))
 
-        # todo: read csv to df
+    def get_persistent_columns(self) -> list:
+        to_ignore = [
+            'redcap_event_name',
+            'redcap_repeat_instrument',
+            'redcap_repeat_instance',
+            'version_scr_data',
+            'version_date_scr_data',
+            'age_scr_data',
+            'sex_scr_data',
+            'pregnancy_scr_data',
+            'completed_date_scr_data',
+            'pi_sig_scr_data',
+            'pi_date_scr_data',
+            'upload_scr_data',
+            'yogtt009_screening_visit_data_collection_form_complete',
+            'vo2_abs_scr_data',
+            'vo2_rel_scr_data',
+            'vo2_plateau_scr_data',
+            'vo2_hr_scr_data',
+            'vo2_rer_scr_data',
+            'completed_by_scr_data'
+        ]
+        cols = self.df.columns.to_list()
+        return [col for col in cols if col not in to_ignore]
 
-        # todo: convert columns to appropriate data types
-        date_columns = self.get_columns('date')
+    def get_int_columns(self, float_cols: list) -> list:
+        return [col for col in self.df.columns.to_list() if col not in float_cols]
 
-        # todo: apply filters
+    @staticmethod
+    def get_float_columns() -> list:
+        return ['height_scr_data',
+                'weight_scr_data',
+                'hba1c1_scr_data',
+                'hba1c2_scr_data',
+                'hba1c3_scr_data',
+                'wcc_scr_data',
+                'rcc_scr_data',
+                'hb_scr_data',
+                'rdwcv_scr_data',
+                'rdwsd_scr_data',
+                'relneutro_scr_data',
+                'relimmgran_scr_data']
 
-        # todo: apply transforms
+    def transform_homa_ir(self) -> None:
+        self.df['homa_ir'] = (self.df['insulin_scr_data'] * self.df['glucose3_scr_data']) / 405
 
-        # todo: save cleaned df to proc location
+    def transform_bmi(self) -> None:
+        self.df['bmi'] = self.df['weight_scr_data'] / ((self.df['height_scr_data'] / 100) ** 2)
 
-    def clean_screening_data(self, *args, **kwargs) -> pd.DataFrame:
-        # todo: do xcom_pull for y-ogtt-002 csv and y-ogtt-009 csv file names and locations
+    def transform_bmi_zscore(self) -> None:
+        # todo: finish method
+        # todo: clean z-table (https://statpage.sandiego.edu/tables.xls) and post on github
+        # todo: clean bmi growth chart and post on github
+        # todo: get M, S, Z regression coefficients
+        # todo: calc z score
+        # todo: get percentile
+        bmi_growth_chart_obj = CleanBmiGrowthChart()
+        bmi_df = bmi_growth_chart_obj()
+        age = (self.df['date_scr_data'].dt.year - self.df['dob'].dt.year) * 12 + \
+              self.df['date_scr_data'].dt.month - self.df['dob'].dt.month
 
-        df_yogtt002 = pd.DataFrame({'foo': 'bar'})
-        df_yogtt009 = pd.DataFrame({'foo': 'bar'})
 
-        # convert columns to int
-        # get columns that need conversion for df_yogtt002
-        lst = df_yogtt002.columns.to_list()
-        to_ignore = ['redcap_event_name', 'redcap_repeat_instrument', 'redcap_repeat_instance', 'last_food_scr',
-                     'duration_scr', 'upload_scr']
-        substring = 'date'
-        date_cols = [col for col in lst if substring in col]
-        to_ignore = to_ignore + date_cols
-        cols = [x for x in lst if x not in to_ignore]
-        df_yogtt002[cols] = df_yogtt002[cols].apply(pd.to_numeric, downcast='integer', errors='coerce')
 
-        # get columns that need conversion for df_yogtt002
-        lst = df_yogtt009.columns.to_list()
-        to_ignore = ['redcap_event_name',
-                     'redcap_repeat_instrument',
-                     'redcap_repeat_instance',
-                     'height_scr_data',
-                     'weight_scr_data',
-                     'hba1c1_scr_data',
-                     'hba1c2_scr_data',
-                     'hba1c3_scr_data',
-                     'wcc_scr_data',
-                     'rcc_scr_data',
-                     'hb_scr_data',
-                     'rdwsd_scr_data',
-                     'rdwcv_scr_data',
-                     'vo2_abs_scr_data',
-                     'vo2_rel_scr_data',
-                     'vo2_plateau_scr_data',
-                     'vo2_rer_scr_data',
-                     'completed_by_scr_data',
-                     'upload_scr_data'
-                     ]
-        date_cols = [col for col in lst if substring in col]
-        to_ignore = to_ignore + date_cols
-        cols = [x for x in lst if x not in to_ignore]
-        df_yogtt002[cols] = df_yogtt002[cols].apply(pd.to_numeric, downcast='integer', errors='coerce')
+    def transform_waist2hip_ratio(self) -> None:
+        self.df['waist_hip_ratio'] = self.df['waist_scr_data'] / self.df['hip_scr_data']
 
-        # todo: convert columns to float
-
-        # remove records that never made it to in-person screening
-        df_yogtt002 = df_yogtt002[df_yogtt002['yogtt002_screening_visit_checklist_complete'] > 0]
-        df_yogtt009 = df_yogtt009[df_yogtt009['yogtt009_screening_visit_data_collection_form_complete'] > 0]
-
-        return df_yogtt002
-
-    def filter_completed(self) -> None:
+    def transform_sbp_zscore(self) -> None:
         pass
 
-    def calculate_homa_ir(self) -> None:
+    def transform_dbp_zscore(self) -> None:
+        pass
+
+    def transform_map_zscore(self) -> None:
         pass
 
 
@@ -468,25 +545,14 @@ def calculate_par_met_hours():
     pass
 
 
-def calculate_bmi(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
-    df['bmi'] = df['weight_scr_data'] / ((df['height_scr_data'] / 100) ** 2)
-    return df
-
-
 def calculate_bmi_zscore(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
     # parameters: dob, visit_date, sex, bmi
     # """
     # Calculate the BMI z-score and percentile for each subject
     #
     # https://www.cdc.gov/growthcharts/percentile_data_files.htm
+    # https://www.cdc.gov/growthcharts/data/zscore/bmiagerev.csv
     #
-    # :param df:
-    # :param args:
-    # :param kwargs:
-    # :return:
-    # """
-    #
-    # # todo: put this on github and read into df
     # df_cdc = pd.DataFrame('cdc_growth_data.csv')
     #
     # # calculate the age with month precision at time of visit
@@ -519,16 +585,6 @@ def calculate_bmi_zscore(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
     # df_ztable = pd.read_csv(path_ztable)
     # percentile = df_ztable.loc[df_ztable['zy'] == zy][zx].values
     # return Z, percentile
-    return df
-
-
-def calculate_hip_waist_ratio(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
-    df['hip_waist_ratio'] = df['hip_scr_data'] / df['waist_scr_data']
-    return df
-
-
-def calculate_homa_ir(df: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
-    df['homa_ir'] = (df['insulin_scr_data'] * df['glucose3_scr_data']) / 405
     return df
 
 
