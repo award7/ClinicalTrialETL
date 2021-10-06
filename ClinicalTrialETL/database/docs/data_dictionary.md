@@ -392,9 +392,9 @@ pedsql_child_physical_cog_score TINYINT,
 ## Personnel
 | Column Name | Data Type | Nullable | Constraints| Description | 
 | --- | --- | --- | --- | --- |
-personnel_id | TINYINT | NO | Primary Key | Study Personnel |
-first_name | NCHAR(255) | NO | | First name |
-last_name | NCHAR(255) | NO | | Last name |
+| personnel_id | TINYINT | NO | Primary Key | Study Personnel |
+| first_name | NCHAR(255) | NO | | First name |
+| last_name | NCHAR(255) | NO | | Last name |
 
 ## ScreeningBloodChemistries
 | Column Name | Data Type | Nullable | Constraints | Description | 

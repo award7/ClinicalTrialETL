@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 from ClinicalTrialETL.etl.utils import get_default_staging_location
 from numpy import nan
+from math import log
 
 
 class BaseCleaner:
@@ -65,6 +66,7 @@ class BaseCleaner:
         if not pd.api.types.is_string_dtype(self.df[col]):
             self.df[col] = self.df[col].astype(str)
         self.df[col] = self.df[col].apply('0361_{:0>4}'.format)
+        self.df.rename(columns={col: 'subject_id'}, inplace=True)
 
 
 class CleanDemographicsData(BaseCleaner):
@@ -109,16 +111,17 @@ class CleanDemographicsData(BaseCleaner):
         # pass the keys and task_ids as kwargs
         # todo: set the key and task_ids variables
         ti = kwargs['ti']
-        path = ti.xcom_pull(key='', task_ids='')
-        file_name = ti.xcom_pull(key='', task_ids='')
-        self.df.to_csv(os.path.join(path, file_name))
+        path = ti.xcom_pull(key='staging_location', task_ids='initialization.set-proc-staging-location')
+        file_name = kwargs['proc_file_name']
+        self.df.to_csv(os.path.join(path, file_name), index=False)
 
     def csv2df(self, **kwargs) -> None:
         # pass the keys and task_ids as kwargs
         # todo: set the key and task_ids variables
         ti = kwargs['ti']
-        path = ti.xcom_pull(key='', task_ids='')
-        file_name = ti.xcom_pull(key='', task_ids='')
+        print(kwargs['raw_task_id'])
+        path = ti.xcom_pull(key='staging_location', task_ids=kwargs['raw_task_id'])
+        file_name = ti.xcom_pull(key='file', task_ids=kwargs['raw_task_id'])
         self.df = pd.read_csv(os.path.join(path, file_name))
 
     def transform_race(self) -> None:
@@ -289,6 +292,23 @@ class CleanBmiGrowthChart(BaseCleaner):
         return [col for col in self.df.columns.to_list() if col not in float_cols]
 
 
+class CleanZScoreTable(BaseCleaner):
+    def __init__(self):
+        super().__init__()
+        self.df = None
+
+    def __call__(self, *args, **kwargs):
+        self.csv2df()
+        self.df.dropna(inplace=True)
+
+    def csv2df(self):
+        self.df = pd.read_excel('https://statpage.sandiego.edu', skiprows=5)
+
+    def delete_extra_header_row(self):
+        idx = 56
+        self.df.drop(idx, inplace=True)
+
+
 class CleanScreeningData(BaseCleaner):
     def __init__(self, *args, **kwargs):
         super().__init__()
@@ -383,17 +403,26 @@ class CleanScreeningData(BaseCleaner):
 
     def transform_bmi_zscore(self) -> None:
         # todo: finish method
-        # todo: clean z-table (https://statpage.sandiego.edu/tables.xls) and post on github
-        # todo: clean bmi growth chart and post on github
-        # todo: get M, S, Z regression coefficients
-        # todo: calc z score
+
+        # todo: move this to a yaml
+        bmi_growth_chart_df = pd.read_csv(
+            'https://raw.githubusercontent.com/award7/ClinicalTrialETL/dev/ClinicalTrialETL/references/bmi_growth_chart.csv')
+
         # todo: get percentile
-        bmi_growth_chart_obj = CleanBmiGrowthChart()
-        bmi_df = bmi_growth_chart_obj()
+        # todo: clean z-table (https://statpage.sandiego.edu/tables.xls) and post on github?
+        # todo: refactor to use pd and timedelta to calculate age at time of visit
         age = (self.df['date_scr_data'].dt.year - self.df['dob'].dt.year) * 12 + \
-              self.df['date_scr_data'].dt.month - self.df['dob'].dt.month
+              self.df['date_scr_data'].dt.month - self.df['dob'].dt.month + 0.5
 
+        df = pd.DataFrame
 
+        def calc_z(bmi, L, M, S) -> float:
+            if L == 0:
+                return log(bmi / M) / S
+            else:
+                return (((bmi / M) ** L) - 1) / (L * S)
+
+        df['Z'] = df[['bmi', 'L', 'M', 'S']].apply(lambda x: calc_z(x['bmi'], x['L'], x['M'], x['S']), axis=1)
 
     def transform_waist2hip_ratio(self) -> None:
         self.df['waist_hip_ratio'] = self.df['waist_scr_data'] / self.df['hip_scr_data']
@@ -410,7 +439,40 @@ class CleanScreeningData(BaseCleaner):
 
 class CleanMriStructuralData(BaseCleaner):
     def __init__(self):
+        super().__init__()
         self.df = None
+
+    def __call__(self, *args, **kwargs):
+        pass
+
+    def csv2df(self) -> None:
+        pass
+
+    def df2csv(self) -> None:
+        pass
+
+    @staticmethod
+    def get_persistent_columns() -> list:
+        return [
+            'record_id',
+            'date_mri',
+            'hr1_mri',
+            'co21_mri',
+            'spo21_mri',
+            'resp1_mri',
+            'sbp1_mri',
+            'dbp1_mri',
+            'map1_mri',
+            'hr2_mri',
+            'co22_mri',
+            'spo22_mri',
+            'resp2_mri',
+            'sbp2_mri',
+            'dbp2_mri',
+            'map2_mri',
+            'payment_mri'
+        ]
+
 
 
 def create_event_form_field_mapping(ti: object = None, *args, **kwargs) -> None:
@@ -692,4 +754,4 @@ def set_proc_staging_location(ti: object = None, *args, **kwargs) -> None:
     :type ti: object
     """
     proc_staging_location = get_default_staging_location(bucket='proc')
-    ti.xcom_push(key='proc_staging_location', value=proc_staging_location)
+    ti.xcom_push(key='staging_location', value=proc_staging_location)

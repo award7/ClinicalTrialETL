@@ -2,7 +2,7 @@ from ClinicalTrialETL.redcap_api import api
 import pandas as pd
 import os
 from datetime import datetime
-from ClinicalTrialETL.etl.utils import get_drives_windows, get_default_staging_location
+from ClinicalTrialETL.etl.utils import get_default_staging_location
 
 """module for extracting data in the ETL process"""
 
@@ -66,8 +66,8 @@ def extract_redcap_data(ti: object = None, export_content: str = 'records', file
 
     # do xcom_push if ti != None
     if ti is not None:
-        ti.xcom_push(key='file_name', value=file_name)
-        ti.xcom_push(key='raw_staging_location', value=raw_staging_location)
+        ti.xcom_push(key='file', value=file_name)
+        ti.xcom_push(key='staging_location', value=raw_staging_location)
 
 
 def _get_export_content_mapping():
