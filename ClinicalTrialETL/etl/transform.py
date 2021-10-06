@@ -247,19 +247,26 @@ class CleanBmiGrowthChart(BaseCleaner):
 
     def __call__(self, *args, **kwargs):
         self.csv2df()
+        self.delete_extra_header_row()
 
-        # there's a row of headers to denote the different sex. Remove it
-        idx = 219
-        self.df.drop(idx, axis=0, inplace=True)
-
-        self.map_sexes()
+        # type casting
         float_cols = self.get_float_columns()
         self.to_float(float_cols)
+        int_cols = self.get_int_columns(float_cols)
+        self.to_int(int_cols)
+
+        # map sexes
+        self.map_sexes()
 
         return self.df
 
     def csv2df(self) -> None:
         self.df = pd.read_csv('https://www.cdc.gov/growthcharts/data/zscore/bmiagerev.csv')
+
+    def delete_extra_header_row(self) -> None:
+        # there's a row of headers to denote the different sex. Remove it
+        idx = 219
+        self.df.drop(idx, axis=0, inplace=True)
 
     @staticmethod
     def get_sex_mapping() -> dict:
@@ -270,11 +277,16 @@ class CleanBmiGrowthChart(BaseCleaner):
 
     def map_sexes(self) -> None:
         mapping = self.get_sex_mapping()
-        self.df['Sex'] = self.df['Sex'].map(mapping)
+        self.df['Sex_'] = self.df['Sex'].map(mapping)
+        self.df['Sex'] = self.df['Sex_']
+        self.df.drop('Sex_', axis=1, inplace=True)
 
     def get_float_columns(self) -> list:
         to_ignore = ['Sex']
         return [col for col in self.df.columns.to_list() if col not in to_ignore]
+
+    def get_int_columns(self, float_cols: list) -> list:
+        return [col for col in self.df.columns.to_list() if col not in float_cols]
 
 
 class CleanScreeningData(BaseCleaner):
