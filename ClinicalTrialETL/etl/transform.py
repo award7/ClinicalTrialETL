@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import os
 from datetime import datetime
 from ClinicalTrialETL.etl.utils import get_default_staging_location
@@ -10,7 +11,7 @@ class BaseCleaner:
         self.df = None
 
     def to_int(self, cols: list) -> None:
-        self.df[cols] = self.df[cols].apply(pd.to_numeric, downcast='integer', errors='coerce')
+        self.df[cols] = self.df[cols].fillna(0.0).astype(int)
 
     def to_float(self, cols: list) -> None:
         self.df[cols] = self.df[cols].apply(pd.to_numeric, downcast='float', errors='coerce')
@@ -32,7 +33,7 @@ class BaseCleaner:
 
     def to_datetime(self, cols: list, date_format: str = '%m/%d/%Y') -> None:
         self.df[cols] = self.df[cols].apply(pd.to_datetime)
-        self.df[cols] = self.df[cols].dt.strftime(date_format)
+        # self.df[cols] = self.df[cols].dt.strftime(date_format)
 
     def fill_na(self) -> None:
         """
@@ -63,21 +64,18 @@ class CleanDemographicsData(BaseCleaner):
     def __init__(self):
         super().__init__()
         self.df = None
-        self.df_survey = None
-        self.df_yogtt004 = None
 
     def __call__(self, *args, **kwargs):
-        # create df's
-        self.df_survey = self.read_demo_survey(ti=kwargs['ti'])
-        self.df_yogtt004 = self.read_yogtt004(ti=kwargs['ti'])
+        """
+        Clean and process demographics data
 
-        # remove '_survey' from column names for merging
-        self.df_survey.columns = [col.replace('_survey', '') for col in self.df_survey.columns.to_list()]
+        :param args:
+        :param kwargs: keyword arguments
+        :return: None
+        """
 
-        # todo: merge the two 'complete' columns into one
-
-        # merge
-        self.df = pd.concat([self.df_survey, self.df_yogtt004], axis=0, ingore_index=True)
+        # read df
+        self.csv2df(**kwargs)
 
         # replace blank entries with nan
         self.fill_na()
@@ -85,54 +83,156 @@ class CleanDemographicsData(BaseCleaner):
         # replace user-input variations of nan with nan
         self.str2na()
 
-        # replace any middle names with just the initial
-        self.df['m_name_demo'] = self.df['m_name_demo'].str.get(0)
+        # apply transforms
+        self.transform_subject_id()
+        self.transform_sex()
+        self.transform_ethnicity()
+        self.transform_zip_code()
+        self.transform_dob()
+        self.transform_race()
 
-        # todo: split name2_demo (i.e. parent name) to f_name and l_name columns
+        # keep only necessary columns
+        cols = self.get_persistent_columns()
+        self.df = self.df.filter(cols)
 
-        # capitalize proper nouns
-        # self.capitalize_proper_nouns()
+        # write cleaned data to proc location
+        self.df2csv(**kwargs)
 
-        # make email all lower case
-        # cols = ['email1_demo', 'email2_demo']
-        # self.df[cols] = self.df[cols].apply(lambda x: x.lower())
+    def df2csv(self, **kwargs) -> None:
+        # pass the keys and task_ids as kwargs
+        ti = kwargs['ti']
+        path = ti.xcom_pull(key='', task_ids='')
+        file_name = ti.xcom_pull(key='', task_ids='')
+        self.df.to_csv(os.path.join(path, file_name))
 
-        # reformat dates to mm/dd/yyyy
-        cols = [
-            'date_demo',
-            'version_date_demo',
-            'birth_date_demo',
-            'completed_date_demo'
+    def csv2df(self, **kwargs) -> None:
+        # pass the keys and task_ids as kwargs
+        ti = kwargs['ti']
+        path = ti.xcom_pull(key='', task_ids='')
+        file_name = ti.xcom_pull(key='', task_ids='')
+        self.df = pd.read_csv(os.path.join(path, file_name))
+
+    def transform_race(self) -> None:
+        # for some unknown reason, the REDCap API returns values for checkbox fields for each record regardless if the
+        # record has no other data for that form. To join the data, we need to get the indexes of records that completed
+        # the `_survey` and place the associated values in the `_demo` field
+        self.df.loc[self.df['demographics_survey_complete'] == 2, 'race2_demo___0'] = self.df['race2_demo_survey___0']
+        self.df.loc[self.df['demographics_survey_complete'] == 2, 'race2_demo___1'] = self.df['race2_demo_survey___1']
+        self.df.loc[self.df['demographics_survey_complete'] == 2, 'race2_demo___2'] = self.df['race2_demo_survey___2']
+        self.df.loc[self.df['demographics_survey_complete'] == 2, 'race2_demo___3'] = self.df['race2_demo_survey___3']
+        self.df.loc[self.df['demographics_survey_complete'] == 2, 'race2_demo___4'] = self.df['race2_demo_survey___4']
+        self.df.loc[self.df['demographics_survey_complete'] == 2, 'race2_demo___99'] = self.df['race2_demo_survey___99']
+        self.map_race()
+
+    def transform_dob(self) -> None:
+        conditions = [~pd.isna(self.df['birth_date_demo']), ~pd.isna(self.df['birth_date_demo_survey'])]
+        self.df['dob'] = np.select(conditions, [self.df['birth_date_demo'], self.df['birth_date_demo_survey']])
+        self.df['dob'] = self.df['dob'].apply(pd.to_datetime)
+
+    def transform_ethnicity(self) -> None:
+        # since we are combining alike data from two forms, we will fill in the data for one form from the other form
+        self.df['ethnicity2_demo'].fillna(self.df['ethnicity2_demo_survey'], inplace=True)
+        self.map_ethnicity()
+
+    def transform_sex(self) -> None:
+        # since we are combining alike data from two forms, we will fill in the data for one form from the other form
+        self.df['gender_demo'].fillna(self.df['gender_demo_survey'], inplace=True)
+        self.map_sex()
+
+    def transform_subject_id(self) -> None:
+        # make standardized study id
+        self.df['record_id'] = self.df['record_id'].apply('0361_{:0>4}'.format)
+
+    def transform_zip_code(self) -> None:
+        conditions = [~pd.isna(self.df['zip2_demo']), ~pd.isna(self.df['zip2_demo_survey'])]
+        self.df['zip_code'] = np.select(conditions, [self.df['zip2_demo'], self.df['zip2_demo_survey']])
+        self.df['zip_code'] = self.df['zip_code'].astype(str)
+        self.df['zip_code'] = self.df['zip_code'].str[0:5]
+
+    @staticmethod
+    def get_persistent_columns() -> list:
+        # these are the columns remaining following processing
+        return [
+            'record_id',
+            'subject_id',
+            'dob',
+            'sex',
+            'ethnicity',
+            'race',
+            'zip_code'
         ]
-        self.df[cols] = pd.to_datetime(self.df[cols])
-        self.df[cols] = self.df[cols].dt.strftime('%m/%d/%Y')
 
-        # todo: convert state name to 2-letter state code
-        # todo: apply regex to remove extraneous whitespaces
-        # todo: format phone number
-        # todo: ensure db has proper code mapping for race, ethnicity, etc.
+    @staticmethod
+    def get_race_mapping() -> dict:
+        return {
+            0: 'American Indian or Alaska Native',
+            1: 'Asian',
+            2: 'Black or African American',
+            3: 'Native Hawaiian or Other Pacific Islander',
+            4: 'White or Caucasian',
+            99: 'Unknown or Not Reported',
+            100: 'Multiracial'
+        }
 
-    def capitalize_proper_nouns(self):
+    def map_race(self):
+        mapping = self.get_race_mapping()
+        # sum the values for the race fields. If >1, then that indicates `Multiracial`
         cols = [
-            'f_name_demo',
-            'm_name_demo',
-            'l_name_demo',
-            'address1_demo',
-            'city1_demo',
-            'address2_demo',
-            'city2_demo'
+            'race2_demo___0',
+            'race2_demo___1',
+            'race2_demo___2',
+            'race2_demo___3',
+            'race2_demo___4',
+            'race2_demo___99'
         ]
-        self.df[cols] = self.df[cols].appply(lambda x: x.title())
+        self.df['race_tally'] = self.df[cols].sum(axis=1)
+        self.df.loc[self.df['race_tally'] > 1, 'race2_demo___100'] = 1
+        conditions = [
+            self.df['race2_demo___0'].eq(1),
+            self.df['race2_demo___1'].eq(1),
+            self.df['race2_demo___2'].eq(1),
+            self.df['race2_demo___3'].eq(1),
+            self.df['race2_demo___4'].eq(1),
+            self.df['race2_demo___99'].eq(1),
+            self.df['race2_demo___100'].eq(1)
+        ]
 
-    def read_demo_survey(self, ti: object) -> pd.DataFrame:
-        path = ti.xcom_pull(key='raw_staging_location', task_ids='')
-        file_name = ti.xcom_pull(key='file_name', task_ids='')
-        return pd.read_csv(os.path.join(path, file_name))
+        # if a record is indicated as multiracial, then set the other race fields to 0
+        self.df.loc[
+            self.df['race_tally'] > 1, ['race2_demo___0',
+                                        'race2_demo___1',
+                                        'race2_demo___2',
+                                        'race2_demo___3',
+                                        'race2_demo___4',
+                                        'race2_demo___99'
+                                        ]
+        ] = 0
 
-    def read_yogtt004(self, ti: object) -> pd.DataFrame:
-        path = ti.xcom_pull(key='raw_staging_location', task_ids='')
-        file_name = ti.xcom_pull(key='file_name', task_ids='')
-        return pd.read_csv(os.path.join(path, file_name))
+        # `map` the value to the race
+        self.df['race'] = np.select(conditions, mapping.values(), default=np.nan)
+
+    @staticmethod
+    def get_sex_mapping() -> dict:
+        return {
+            0: 'Male',
+            1: 'Female'
+        }
+
+    def map_sex(self):
+        mapping = self.get_sex_mapping()
+        self.df['sex'] = self.df['gender_demo'].map(mapping)
+
+    @staticmethod
+    def get_ethnicity_mapping() -> dict:
+        return {
+            0: 'Hispanic',
+            1: 'Non-Hispanic',
+            99: 'Unknown or Not Reported'
+        }
+
+    def map_ethnicity(self):
+        mapping = self.get_ethnicity_mapping()
+        self.df['ethnicity'] = self.df['ethnicity2_demo'].map(mapping)
 
 
 class CleanScreeningData(BaseCleaner):
@@ -270,7 +370,6 @@ def create_event_form_field_mapping(ti: object = None, *args, **kwargs) -> None:
     missing_forms = df[df['form'].isna()]
     # fill in the form by dropping '_complete' from the 'field_name'
     missing_forms.loc[missing_forms['form'].isna(), 'form'] = missing_forms['field_name'].str.replace('_complete', '')
-
 
     # save file
     save_location = ti.xcom_pull(key='proc_staging_location', task_ids='transform.set-proc-staging-location')

@@ -447,7 +447,7 @@ last_name | NCHAR(255) | NO | | Last name |
 | Column Name | Data Type | Nullable | Constraints | Description |
 | --- | --- | --- | --- | --- |
 | subject_race_id | TINYINT | NO | Primary Key | Identity |
-| race | CHAR(255) | NO | `American Indian or Alaska Native`, `Asian`, `Black or African American`, `Native Hawaiian or Other Pacific Islander`, `White or Caucasian`, `Unknown or Not Reported` | Subject race |
+| race | CHAR(255) | NO | `American Indian or Alaska Native`, `Asian`, `Black or African American`, `Native Hawaiian or Other Pacific Islander`, `White or Caucasian`, `Unknown or Not Reported`, `Multiracial` | Subject race |
  
 
 ## Subjects
