@@ -5,9 +5,10 @@ from datetime import datetime
 from ClinicalTrialETL.etl.utils import get_default_staging_location
 from numpy import nan
 from math import log
+import abc
 
 
-class BaseCleaner:
+class BaseCleaner(metaclass=abc.ABCMeta):
     def __init__(self):
         self.df = None
 
@@ -68,6 +69,21 @@ class BaseCleaner:
         self.df[col] = self.df[col].apply('0361_{:0>4}'.format)
         self.df.rename(columns={col: 'subject_id'}, inplace=True)
 
+    @abc.abstractmethod
+    def df2csv(self) -> None:
+        return
+
+    @abc.abstractmethod
+    def csv2df(self) -> None:
+        return
+
+    @staticmethod
+    @abc.abstractmethod
+    def get_persistent_columns() -> None:
+        return
+
+    # todo: add validations
+
 
 class CleanDemographicsData(BaseCleaner):
     def __init__(self):
@@ -117,9 +133,7 @@ class CleanDemographicsData(BaseCleaner):
 
     def csv2df(self, **kwargs) -> None:
         # pass the keys and task_ids as kwargs
-        # todo: set the key and task_ids variables
         ti = kwargs['ti']
-        print(kwargs['raw_task_id'])
         path = ti.xcom_pull(key='staging_location', task_ids=kwargs['raw_task_id'])
         file_name = ti.xcom_pull(key='file', task_ids=kwargs['raw_task_id'])
         self.df = pd.read_csv(os.path.join(path, file_name))
@@ -158,7 +172,7 @@ class CleanDemographicsData(BaseCleaner):
         self.df['zip_code'] = self.df['zip_code'].str[0:5]
 
     @staticmethod
-    def get_persistent_columns() -> list:
+    def get_persistent_columns(**kwargs) -> list:
         # these are the columns remaining following processing
         return [
             'record_id',
@@ -266,6 +280,13 @@ class CleanBmiGrowthChart(BaseCleaner):
     def csv2df(self) -> None:
         self.df = pd.read_csv('https://www.cdc.gov/growthcharts/data/zscore/bmiagerev.csv')
 
+    def df2csv(self) -> None:
+        return
+
+    @staticmethod
+    def get_persistent_columns(**kwargs) -> None:
+        return
+
     def delete_extra_header_row(self) -> None:
         # there's a row of headers to denote the different sex. Remove it
         idx = 219
@@ -304,6 +325,13 @@ class CleanZScoreTable(BaseCleaner):
     def csv2df(self):
         self.df = pd.read_excel('https://statpage.sandiego.edu', skiprows=5)
 
+    def df2csv(self) -> None:
+        return
+
+    @staticmethod
+    def get_persistent_columns(**kwargs) -> None:
+        return
+
     def delete_extra_header_row(self):
         idx = 56
         self.df.drop(idx, inplace=True)
@@ -316,7 +344,8 @@ class CleanScreeningData(BaseCleaner):
 
     def __call__(self, *args, **kwargs):
         self.csv2df(**kwargs)
-        cols = self.get_persistent_columns()
+        cols = self.df.columns.to_list()
+        cols = self.get_persistent_columns(cols=cols)
         self.df = self.df.filter(cols)
 
         # todo: join `dob` and 'sex` columns from demographics
@@ -352,7 +381,8 @@ class CleanScreeningData(BaseCleaner):
         file_name = ti.xcom_pull(key='', task_ids='')
         self.df = pd.read_csv(os.path.join(path, file_name))
 
-    def get_persistent_columns(self) -> list:
+    @staticmethod
+    def get_persistent_columns(**kwargs) -> list:
         to_ignore = [
             'redcap_event_name',
             'redcap_repeat_instrument',
@@ -374,7 +404,7 @@ class CleanScreeningData(BaseCleaner):
             'vo2_rer_scr_data',
             'completed_by_scr_data'
         ]
-        cols = self.df.columns.to_list()
+        cols = kwargs['cols']
         return [col for col in cols if col not in to_ignore]
 
     def get_int_columns(self, float_cols: list) -> list:
@@ -443,16 +473,31 @@ class CleanMriStructuralData(BaseCleaner):
         self.df = None
 
     def __call__(self, *args, **kwargs):
-        pass
+        self.csv2df(**kwargs)
+        cols = self.get_persistent_columns()
+        self.df = self.df.filter(cols)
 
-    def csv2df(self) -> None:
-        pass
+        self.fill_na()
+        self.str2na()
 
-    def df2csv(self) -> None:
-        pass
+        cols = self.df.columns.to_list()
+        cols = [col for col in cols if col not in ('date_mri', 'payment_mri')]
+        self.to_int(cols)
+
+    def csv2df(self, **kwargs) -> None:
+        ti = kwargs['ti']
+        path = ti.xcom_pull(key='staging_location', task_ids=kwargs['raw_task_id'])
+        file_name = ti.xcom_pull(key='file', task_ids=kwargs['raw_task_id'])
+        self.df = pd.read_csv(os.path.join(path, file_name))
+
+    def df2csv(self, **kwargs) -> None:
+        ti = kwargs['ti']
+        path = ti.xcom_pull(key='staging_location', task_ids='initialization.set-proc-staging-location')
+        file_name = kwargs['proc_file_name']
+        self.df.to_csv(os.path.join(path, file_name), index=False)
 
     @staticmethod
-    def get_persistent_columns() -> list:
+    def get_persistent_columns(**kwargs) -> list:
         return [
             'record_id',
             'date_mri',
@@ -473,6 +518,142 @@ class CleanMriStructuralData(BaseCleaner):
             'payment_mri'
         ]
 
+    def remove_currency_symbol(self) -> None:
+        # todo: apply to `payment_mri`
+        return
+
+
+class CleanOgttVisitData(BaseCleaner):
+    def __init__(self):
+        super().__init__()
+        self.df = None
+
+    def __call__(self, *args, **kwargs):
+        return
+
+    def csv2df(self) -> None:
+        return
+
+    def df2csv(self) -> None:
+        return
+
+    @staticmethod
+    def get_persistent_columns() -> None:
+        return
+
+
+class CleanCognitiveData(BaseCleaner):
+    def __init__(self):
+        super().__init__()
+        self.df = None
+
+    def __call__(self, *args, **kwargs):
+        return
+
+    def csv2df(self) -> None:
+        return
+
+    def df2csv(self) -> None:
+        return
+
+    @staticmethod
+    def get_persistent_columns() -> None:
+        return
+
+
+class CleanMedicalHistoryData(BaseCleaner):
+    def __init__(self):
+        super().__init__()
+        self.df = None
+
+    def __call__(self, *args, **kwargs):
+        return
+
+    def csv2df(self) -> None:
+        return
+
+    def df2csv(self) -> None:
+        return
+
+    @staticmethod
+    def get_persistent_columns() -> None:
+        return
+
+
+class CleanParData(BaseCleaner):
+    def __init__(self):
+        super().__init__()
+        self.df = None
+
+    def __call__(self, *args, **kwargs):
+        return
+
+    def csv2df(self) -> None:
+        return
+
+    def df2csv(self) -> None:
+        return
+
+    @staticmethod
+    def get_persistent_columns() -> None:
+        return
+
+
+class CleanSubjectOffStudyData(BaseCleaner):
+    def __init__(self):
+        super().__init__()
+        self.df = None
+
+    def __call__(self, *args, **kwargs):
+        return
+
+    def csv2df(self) -> None:
+        return
+
+    def df2csv(self) -> None:
+        return
+
+    @staticmethod
+    def get_persistent_columns() -> None:
+        return
+
+
+class CleanDexaData(BaseCleaner):
+    def __init__(self):
+        super().__init__()
+        self.df = None
+
+    def __call__(self, *args, **kwargs):
+        return
+
+    def csv2df(self) -> None:
+        return
+
+    def df2csv(self) -> None:
+        return
+
+    @staticmethod
+    def get_persistent_columns() -> None:
+        return
+
+
+class CleanVo2MaxData(BaseCleaner):
+    def __init__(self):
+        super().__init__()
+        self.df = None
+
+    def __call__(self, *args, **kwargs):
+        return
+
+    def csv2df(self) -> None:
+        return
+
+    def df2csv(self) -> None:
+        return
+
+    @staticmethod
+    def get_persistent_columns() -> None:
+        return
 
 
 def create_event_form_field_mapping(ti: object = None, *args, **kwargs) -> None:
@@ -556,63 +737,6 @@ def remove_old_files(ti: object = None, n_days: int = -7, key: str = None, task_
             # remove if more than n days different
             if age.days <= n_days:
                 os.remove(os.path.join(root, file))
-
-
-def clean_demographics_data(df_survey: pd.DataFrame, df_form: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:
-    # remove '_survey' from column names for merging
-    df_survey.columns = [col.replace('_survey', '') for col in df_survey.columns.to_list()]
-
-    # merge
-    df = pd.concat([df_survey, df_form], axis=0, ingore_index=True)
-
-    # remove non-completed forms
-    # todo: merge the two 'complete' columns into one
-    df = df[df['yogtt004_demographics_complete'] == '2']
-
-    # replace blank entries with nan
-    df = df.replace(r'^\s*$', nan, regex=True)
-
-    # replace user-input variations of nan with nan
-    df = df.replace(r'^[nN]\W?[aA]$', nan, regex=True)
-
-    # replace any middle names with just the initial
-    df['m_name_demo'] = df['m_name_demo'].str.get(0)
-
-    # todo: split name2_demo (i.e. parent name) to f_name and l_name columns
-
-    # capitalize proper nouns
-    cols = [
-        'f_name_demo',
-        'm_name_demo',
-        'l_name_demo',
-        'address1_demo',
-        'city1_demo',
-        'address2_demo',
-        'city2_demo'
-    ]
-    df[cols] = df[cols].appply(lambda x: x.title())
-
-    # make email all lower case
-    cols = ['email1_demo', 'email2_demo']
-    df[cols] = df[cols].apply(lambda x: x.lower())
-
-    # reformat dates to mm/dd/yyyy
-    cols = [
-        'date_demo',
-        'version_date_demo',
-        'birth_date_demo',
-        'completed_date_demo'
-    ]
-    df[cols] = pd.to_datetime(df[cols])
-    df[cols] = df[cols].dt.strftime('%m/%d/%Y')
-
-    # convert state name to 2-letter state code
-    # todo: apply regex to remove extraneous whitespaces
-
-    # todo: format phone number
-
-    # todo: ensure db has proper code mapping for race, ethnicity, etc.
-    return df
 
 
 def calculate_par_met_hours():
