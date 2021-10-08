@@ -1,4 +1,44 @@
+import pymssql
+
 """load preprocessed data into db and update REDCap forms"""
+
+
+class LoadSandbox:
+    def __init__(self):
+        self.server = 'DESKTOP-M7B02JD'
+        self.database = 'phd_sandbox'
+        self.uid = 'DESKTOP-M7B02JD\\Aaron Ward'
+        self.pwd = 'Goober1989'
+        self.port = 1433
+        self.conn = None
+        self.cursor = None
+
+    def make_connection(self):
+        self.conn = pymssql.connect(host=self.server, database=self.database, user=self.uid, password=self.pwd, port=self.port)
+
+    def make_cursor(self):
+        self.cursor = self.conn.cursor()
+
+    def load_subjects(self):
+        data = ['test1', 12, 'Male', 'White or Caucasian', 'Hispanic', '2019-0361']
+        sql = 'exec dbo.sp__InsertIntoSubjects @subject=?, @age=?, @sex=?, @race=?, @ethnicity=?, @study=?'
+        self.cursor.execute(sql, data)
+
+
+class LoadCsv2Sql:
+    # https://stackoverflow.com/questions/24915113/how-can-i-check-if-a-record-exists-when-passing-a-dataframe-to-sql-in-pandas
+    # https://stackoverflow.com/questions/30569666/update-if-exists-else-insert-in-sql
+    def __init__(self, conn_id) -> None:
+        self.hook = MsSqlHook(mssql_conn_id=conn_id)
+        self.conn = hook.get_conn()
+        self.cursor = self.conn.cursor()
+
+    def load_subjects(self) -> None:
+        # todo: get task id for xcom pull
+        # todo: get file name and path from xcom
+
+        sql = 'exec dbo.sp__InsertIntoSubjects @subject=?, @age=?, @sex=?, @race=?, @ethnicity=?, @study=?'
+
 
 
 def load_arterial_spin_labeling_data():
@@ -119,8 +159,8 @@ def load_wraml_data():
 
 class InsertData:
 
-    def __init__(self, db_object: DB):
-        self.cur = db_object.cur
+    def __init__(self): # , db_object: DB):
+        self.cur = None # db_object.cur
 
     def __del__(self):
         self.cur.close()

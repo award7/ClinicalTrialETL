@@ -10,7 +10,7 @@ def _read_yaml(info: str) -> dict:
     yml = os.path.join(directory, 'info.yaml')
     with open(yml, 'r') as f:
         stream = yaml.load(f, Loader=yaml.FullLoader)
-    return stream[info]
+    return stream['db']
 
 
 class DB:
@@ -269,18 +269,18 @@ if __name__ == '__main__':
     db = DB()
 
     # insert default values if needed
-    proc = InsertDefaultValues(db)
-    proc.insert_default_box_colors()
-    proc.insert_default_ethnicities()
-    proc.insert_default_freezer_shelves()
-    proc.insert_default_freezers()
-    proc.insert_default_grid_locations()
-    proc.insert_default_personnel()
-    proc.insert_default_races()
-    proc.insert_default_sexes()
-    proc.insert_default_statuses()
-    proc.insert_default_studies()
-    proc.insert_default_time_points()
-    proc.insert_default_tube_colors()
-    proc.insert_default_vessels()
-    proc.insert_default_visit_names()
+    # proc = InsertDefaultValues(db)
+    # proc.insert_default_box_colors()
+    # proc.insert_default_ethnicities()
+    # proc.insert_default_freezer_shelves()
+    # proc.insert_default_freezers()
+    # proc.insert_default_grid_locations()
+    # proc.insert_default_personnel()
+    # proc.insert_default_races()
+    # proc.insert_default_sexes()
+    # proc.insert_default_statuses()
+    # proc.insert_default_studies()
+    # proc.insert_default_time_points()
+    # proc.insert_default_tube_colors()
+    # proc.insert_default_vessels()
+    # proc.insert_default_visit_names()
