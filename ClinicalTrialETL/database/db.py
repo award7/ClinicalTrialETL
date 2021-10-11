@@ -10,13 +10,12 @@ def _read_yaml(info: str) -> dict:
     yml = os.path.join(directory, 'info.yaml')
     with open(yml, 'r') as f:
         stream = yaml.load(f, Loader=yaml.FullLoader)
-    return stream['db']
+    return stream['info']
 
 
 class DB:
 
     def __init__(self):
-        # opted not to make a method "get_db_info" to avoid exposing sensitive information
         db_info = _read_yaml("info")
 
         self.conn = self.connect_db(db_info)
@@ -104,14 +103,14 @@ class GetId:
 
 class InsertDefaultValues:
 
-    def __init__(self, db_object: DB):
-        self.cur = db_object.cur
+    def __init__(self, cursor):
+        self.cur = cursor
 
     def __del__(self):
         self.cur.close()
 
     def insert_default_box_colors(self) -> None:
-        sql = "EXEC dbo.sp__InsertDefaultValuesBoxColors @color=?"
+        sql = "sp__InsertDefaultValuesBoxColors"
         colors = [
             'Green',
             'Red',
@@ -120,7 +119,7 @@ class InsertDefaultValues:
         self._exec(sql, colors)
 
     def insert_default_ethnicities(self) -> None:
-        sql = "EXEC dbo.sp__InsertDefaultValuesEthnicities @ethnicity=?"
+        sql = "dbo.sp__InsertDefaultValuesEthnicities @ethnicity=?"
         ethnicities = [
             'Hispanic',
             'Non-Hispanic',
@@ -130,7 +129,7 @@ class InsertDefaultValues:
 
     def insert_default_freezers(self) -> None:
         # TODO: fix 2 params vs 1 param
-        sql = "EXEC dbo.sp__InsertDefaultValuesFreezers @name=?, @number=?"
+        sql = "dbo.sp__InsertDefaultValuesFreezers @name=?, @number=?"
         freezers = list(zip([
             ('-80', 14)
         ]))
@@ -142,9 +141,8 @@ class InsertDefaultValues:
         self._exec(sql, shelf_numbers)
 
     def insert_default_grid_locations(self) -> None:
-        # TODO: fix type conversion tinyint -> varchar
         """standard freezer boxes in the lab are 10x10"""
-        sql = "EXEC dbo.sp__InsertDefaultValuesGridLocations @location=?"
+        sql = "sp__InsertDefaultValuesGridLocations"
         cols = [chr(n) for n in range(65, 75)]
         grid = [("".join(map(str, x)),) for x in product(cols, range(1, 11))]
         self._exec(sql, grid)
@@ -169,6 +167,7 @@ class InsertDefaultValues:
             'Black or African American',
             'Native Hawaiian or Other Pacific Islander',
             'White or Caucasian',
+            'Multiracial',
             'Unknown or Not Reported'
         ]
         self._exec(sql, races)
@@ -193,7 +192,7 @@ class InsertDefaultValues:
         self._exec(sql, statuses)
 
     def insert_default_studies(self) -> None:
-        sql = "EXEC dbo.sp__InsertDefaultValuesStudies @study=?"
+        sql = "dbo.sp__InsertDefaultValuesStudies @study=?"
         studies = [
             '2019-0361',
             '2019-0838'
@@ -261,7 +260,7 @@ class InsertDefaultValues:
         # ensure order
         params.sort()
         for param in params:
-            self.cur.execute(sql, param)
+            self.cur.callproc(sql, param)
 
 
 if __name__ == '__main__':
@@ -269,18 +268,18 @@ if __name__ == '__main__':
     db = DB()
 
     # insert default values if needed
-    # proc = InsertDefaultValues(db)
-    # proc.insert_default_box_colors()
-    # proc.insert_default_ethnicities()
-    # proc.insert_default_freezer_shelves()
-    # proc.insert_default_freezers()
-    # proc.insert_default_grid_locations()
-    # proc.insert_default_personnel()
-    # proc.insert_default_races()
-    # proc.insert_default_sexes()
-    # proc.insert_default_statuses()
-    # proc.insert_default_studies()
-    # proc.insert_default_time_points()
-    # proc.insert_default_tube_colors()
-    # proc.insert_default_vessels()
-    # proc.insert_default_visit_names()
+    proc = InsertDefaultValues(db)
+    proc.insert_default_box_colors()
+    proc.insert_default_ethnicities()
+    proc.insert_default_freezer_shelves()
+    proc.insert_default_freezers()
+    proc.insert_default_grid_locations()
+    proc.insert_default_personnel()
+    proc.insert_default_races()
+    proc.insert_default_sexes()
+    proc.insert_default_statuses()
+    proc.insert_default_studies()
+    proc.insert_default_time_points()
+    proc.insert_default_tube_colors()
+    proc.insert_default_vessels()
+    proc.insert_default_visit_names()
