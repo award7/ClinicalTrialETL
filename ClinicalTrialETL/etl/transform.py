@@ -110,11 +110,10 @@ class CleanDemographicsData(BaseCleaner):
 
         # apply transforms
         self.transform_subject_id()
+        self.transform_age()
         self.transform_sex()
-        self.transform_ethnicity()
-        self.transform_zip_code()
-        self.transform_dob()
         self.transform_race()
+        self.transform_ethnicity()
 
         # keep only necessary columns
         cols = self.get_persistent_columns()
@@ -122,6 +121,11 @@ class CleanDemographicsData(BaseCleaner):
 
         # write cleaned data to proc location
         self.df2csv(**kwargs)
+
+        ti = kwargs['ti']
+        path = ti.xcom_pull(key='staging_location', task_ids='initialization.set-proc-staging-location')
+        file_name = kwargs['proc_file_name']
+        return os.path.join(path, file_name)
 
     def df2csv(self, **kwargs) -> None:
         # pass the keys and task_ids as kwargs
@@ -137,6 +141,9 @@ class CleanDemographicsData(BaseCleaner):
         path = ti.xcom_pull(key='staging_location', task_ids=kwargs['raw_task_id'])
         file_name = ti.xcom_pull(key='file', task_ids=kwargs['raw_task_id'])
         self.df = pd.read_csv(os.path.join(path, file_name))
+
+    def transform_age(self) -> None:
+        self.df.rename(columns={'age_scr_data': 'age'}, inplace=True)
 
     def transform_race(self) -> None:
         # for some unknown reason, the REDCap API returns values for checkbox fields for each record regardless if the
@@ -175,13 +182,13 @@ class CleanDemographicsData(BaseCleaner):
     def get_persistent_columns(**kwargs) -> list:
         # these are the columns remaining following processing
         return [
-            'record_id',
+            # 'record_id',
             'subject_id',
-            'dob',
+            'age',
             'sex',
-            'ethnicity',
             'race',
-            'zip_code'
+            'ethnicity'
+            # 'zip_code'
         ]
 
     @staticmethod

@@ -110,46 +110,45 @@ class InsertDefaultValues:
         self.cur.close()
 
     def insert_default_box_colors(self) -> None:
-        sql = "sp__InsertDefaultValuesBoxColors"
+        sql = "sp__InsertDefaultValuesBoxColors @color=%s"
         colors = [
             'Green',
             'Red',
             'Yellow'
         ]
-        self._exec(sql, colors)
+        self.cur.executemany(sql, colors)
 
     def insert_default_ethnicities(self) -> None:
-        sql = "dbo.sp__InsertDefaultValuesEthnicities @ethnicity=?"
+        sql = "sp__InsertDefaultValuesEthnicities @ethnicity=%s"
         ethnicities = [
             'Hispanic',
             'Non-Hispanic',
             'Unknown or Not Reported'
         ]
-        self._exec(sql, ethnicities)
+        self.cur.executemany(sql, ethnicities)
 
     def insert_default_freezers(self) -> None:
-        # TODO: fix 2 params vs 1 param
-        sql = "dbo.sp__InsertDefaultValuesFreezers @name=?, @number=?"
-        freezers = list(zip([
+        sql = "sp__InsertDefaultValuesFreezers @name=%s, @number=%s"
+        freezers = list([
             ('-80', 14)
-        ]))
-        self._exec(sql, freezers)
+        ])
+        self.cur.executemany(sql, freezers)
 
     def insert_default_freezer_shelves(self) -> None:
-        sql = "EXEC dbo.sp__InsertDefaultValuesFreezerShelves @shelf_number=?"
+        sql = "sp__InsertDefaultValuesFreezerShelves @shelf_number=%s"
         shelf_numbers = [(val,) for val in list(range(1, 6))]
-        self._exec(sql, shelf_numbers)
+        self.cur.executemany(sql, shelf_numbers)
 
     def insert_default_grid_locations(self) -> None:
         """standard freezer boxes in the lab are 10x10"""
-        sql = "sp__InsertDefaultValuesGridLocations"
+        sql = "sp__InsertDefaultValuesGridLocations @location=%s"
         cols = [chr(n) for n in range(65, 75)]
         grid = [("".join(map(str, x)),) for x in product(cols, range(1, 11))]
-        self._exec(sql, grid)
+        self.cur.executemany(sql, grid)
 
     def insert_default_personnel(self) -> None:
         # todo: fix params 2 vs. 1
-        sql = "EXEC dbo.sp__InsertDefaultValuesPersonnel @first_name=?, @last_name=?"
+        sql = "sp__InsertDefaultValuesPersonnel @first_name=%s, @last_name=%s"
         first_names = []
         last_names = []
         personnel_info = _read_yaml("personnel")
@@ -157,10 +156,10 @@ class InsertDefaultValues:
             first_names.append(personnel_info[person]['first_name'])
             last_names.append(personnel_info[person]['last_name'])
         name_pairs = list(zip(first_names, last_names))
-        self._exec(sql, name_pairs)
+        self.cur.executemany(sql, name_pairs)
 
     def insert_default_races(self) -> None:
-        sql = "EXEC dbo.sp__InsertDefaultValuesRaces @race=?"
+        sql = "sp__InsertDefaultValuesRaces @race=%s"
         races = [
             'American Indian or Alaska Native',
             'Asian',
@@ -170,51 +169,50 @@ class InsertDefaultValues:
             'Multiracial',
             'Unknown or Not Reported'
         ]
-        self._exec(sql, races)
+        self.cur.executemany(sql, races)
 
     def insert_default_sexes(self) -> None:
-        sql = "EXEC dbo.sp__InsertDefaultValuesSexes @sex=?"
+        sql = "sp__InsertDefaultValuesSexes @sex=%s"
         sexes = [
             'Male',
-            'Female',
-            'Unknown or Not Reported'
+            'Female'
         ]
-        self._exec(sql, sexes)
+        self.cur.executemany(sql, sexes)
 
     def insert_default_statuses(self) -> None:
-        sql = "EXEC dbo.sp__InsertDefaultValuesStatuses @status=?"
+        sql = "sp__InsertDefaultValuesStatuses @status=%s"
         statuses = [
             'In',
             'Out',
             'Analyzed',
             'Destroyed'
         ]
-        self._exec(sql, statuses)
+        self.cur.executemany(sql, statuses)
 
     def insert_default_studies(self) -> None:
-        sql = "dbo.sp__InsertDefaultValuesStudies @study=?"
+        sql = "sp__InsertDefaultValuesStudies @study=%s"
         studies = [
             '2019-0361',
             '2019-0838'
         ]
-        self._exec(sql, studies)
+        self.cur.executemany(sql, studies)
 
     def insert_default_time_points(self) -> None:
-        sql = "EXEC dbo.sp__InsertDefaultValuesTimePoints @time_point=?"
-        times = [0, 5, 10, 15, 20, 30, 45, 60]
-        self._exec(sql, times)
+        sql = "sp__InsertDefaultValuesTimePointLabels @label=%s"
+        labels = ['0', '5', '10', '15', '20', '30', '45', '60']
+        self.cur.executemany(sql, labels)
 
     def insert_default_tube_colors(self) -> None:
-        sql = "EXEC dbo.sp__InsertDefaultValuesTubeColors @color=?"
+        sql = "sp__InsertDefaultValuesTubeColors @color=%s"
         colors = [
             'Green',
             'Red',
             'Yellow'
         ]
-        self._exec(sql, colors)
+        self.cur.executemany(sql, colors)
 
     def insert_default_vessels(self) -> None:
-        sql = "EXEC dbo.sp__InsertDefaultValuesVessels @vessel=?"
+        sql = "sp__InsertDefaultValuesVessels @vessel=%s"
         vessels = [
             'ICA_l',
             'ICA_r',
@@ -232,10 +230,10 @@ class InsertDefaultValues:
             'TS',
             'nTS'
         ]
-        self._exec(sql, vessels)
+        self.cur.executemany(sql, vessels)
 
     def insert_default_visit_names(self) -> None:
-        sql = "EXEC dbo.sp__InsertDefaultValuesVisitNames @visit_name=?"
+        sql = "sp__InsertDefaultValuesVisitNames @visit_name=%s"
         names = [
             'Screening',
             'ReScreening',
@@ -254,14 +252,7 @@ class InsertDefaultValues:
             'VO2max',
             'ReVO2max'
         ]
-        self._exec(sql, names)
-
-    def _exec(self, sql: str, params: list) -> None:
-        # ensure order
-        params.sort()
-        for param in params:
-            self.cur.callproc(sql, param)
-
+        self.cur.executemany(sql, names)
 
 if __name__ == '__main__':
     # connect to db, build if needed

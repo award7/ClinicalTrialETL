@@ -1,56 +1,36 @@
-import pymssql
+from airflow.providers.microsoft.mssql.hooks.mssql import MsSqlHook
+import csv
 
 """load preprocessed data into db and update REDCap forms"""
 
 
-class LoadSandbox:
-    def __init__(self):
-        self.server = 'DESKTOP-M7B02JD'
-        self.database = 'phd_sandbox'
-        self.uid = 'DESKTOP-M7B02JD\\Aaron Ward'
-        self.pwd = 'Goober1989'
-        self.port = 1433
-        self.conn = None
-        self.cursor = None
-
-    def make_connection(self):
-        self.conn = pymssql.connect(host=self.server, database=self.database, user=self.uid, password=self.pwd, port=self.port)
-
-    def make_cursor(self):
-        self.cursor = self.conn.cursor()
-
-    def load_subjects(self):
-        data = ['test1', 12, 'Male', 'White or Caucasian', 'Hispanic', '2019-0361']
-        sql = 'exec dbo.sp__InsertIntoSubjects @subject=?, @age=?, @sex=?, @race=?, @ethnicity=?, @study=?'
-        self.cursor.execute(sql, data)
+def load_csv2db(func):
+    def wrapper(*args, **kwargs):
+        with open(kwargs['csv_path']) as csv_file:
+            csv_reader = csv.reader(csv_file)
+            next(csv_reader)
+            hook = MsSqlHook(mssql_conn_id=kwargs['conn_id'])
+            conn = hook.get_conn()
+            conn.autocommit(True)
+            cur = conn.cursor()
+            sql = func(*args, **kwargs)
+            for data in csv_reader:
+                cur.execute(sql, tuple(data))
+    return wrapper
 
 
-class LoadCsv2Sql:
-    # https://stackoverflow.com/questions/24915113/how-can-i-check-if-a-record-exists-when-passing-a-dataframe-to-sql-in-pandas
-    # https://stackoverflow.com/questions/30569666/update-if-exists-else-insert-in-sql
-    def __init__(self, conn_id) -> None:
-        self.hook = MsSqlHook(mssql_conn_id=conn_id)
-        self.conn = hook.get_conn()
-        self.cursor = self.conn.cursor()
-
-    def load_subjects(self) -> None:
-        # todo: get task id for xcom pull
-        # todo: get file name and path from xcom
-
-        sql = 'exec dbo.sp__InsertIntoSubjects @subject=?, @age=?, @sex=?, @race=?, @ethnicity=?, @study=?'
-
-
-
-def load_arterial_spin_labeling_data():
-    pass
+def load_arterial_spin_labeling_data(conn_id: str, csv_path: str, *args, **kwargs) -> str:
+    sql = ''
+    return sql
 
 
 def load_biosamples():
     pass
 
 
-def load_body_measurements_data():
-    pass
+@load_csv2db
+def load_anthropometrics(conn_id: str, csv_path: str, *args, **kwargs):
+    return """sp__InsertIntoAnthropometrics @subject=%s, @visit_name=%s, @height=%s, @weight=%s, @body_mass_index=%s, @hip_circumference=%s, @waist_circumference=%s, @waist_hip_ratio=%s, @tanner_stage=%s"""
 
 
 def load_brain_volumes():
@@ -69,8 +49,8 @@ def load_cerebrovascular_reactivity_data():
     pass
 
 
-def load_complete_blood_count_data():
-    pass
+def load_complete_blood_count_data(conn_id: str = None, csv_path: str = None, *args, **kwargs):
+    return """sp__InsertIntoCompleteBloodCountData """
 
 
 def load_dccs_data():
@@ -121,12 +101,18 @@ def load_screening_vitals_data():
     pass
 
 
-def load_subjects():
-    pass
+@load_csv2db
+def load_subjects(conn_id: str = None, csv_path: str = None, *args, **kwargs):
+    # pass conn_id: str, csv_path: str, as kwargs
+    return """sp__InsertIntoSubjects @subject=%s, @age=%s, @sex=%s, @race=%s, @ethnicity=%s, @study='2019-0361'"""
 
 
 def load_submaximal_exercise_data():
     pass
+
+
+def load_time_points(conn_id: str = None, csv_path: str = None, *args, **kwargs):
+    return """sp__InsertIntoTimePoints @subject=%s, @visit_name=%s, @time_point_label=%s"""
 
 
 def load_vipr_heart_rate_data():
@@ -145,8 +131,8 @@ def load_vipr_windows():
     pass
 
 
-def load_visits():
-    pass
+def load_visits(conn_id: str = None, csv_path: str = None, *args, **kwargs):
+    return """sp__InsertIntoVisits @subject=%s, @visit_name=%s, @visit_date=%s"""
 
 
 def load_wasii_data():
