@@ -7,7 +7,7 @@ BEGIN
 
 	-- setup temp table
 	CREATE TABLE #tmpVisitNames(
-	visit_name VARCHAR(255)
+        visit_name VARCHAR(255)
 	);
  
 	INSERT INTO #tmpVisitNames

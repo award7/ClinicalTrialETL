@@ -1,4 +1,3 @@
-USE phd_sandbox
 -- ArterialSpinLabelingData
 IF OBJECT_ID(N'pk__ArterialSpinLabelingData', N'PK') IS NULL
     BEGIN

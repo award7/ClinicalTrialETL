@@ -7,7 +7,7 @@ BEGIN
 
 	-- setup temp table
 	CREATE TABLE #tmpRaces(
-	race VARCHAR(255)
+        race VARCHAR(255)
 	);
  
 	INSERT INTO #tmpRaces(race)

@@ -7,7 +7,7 @@ BEGIN
 
 	-- setup temp table
 	CREATE TABLE #tmpSexes(
-	sex VARCHAR(255)
+        sex VARCHAR(255)
 	);
  
 	INSERT INTO #tmpSexes(sex)

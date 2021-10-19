@@ -35,6 +35,6 @@ BEGIN
         @petco2,
         @velocity, 
         @subject_id, 
-        @visit_id,
+        @visit_id
     );
 END

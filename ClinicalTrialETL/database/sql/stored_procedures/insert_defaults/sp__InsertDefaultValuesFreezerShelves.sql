@@ -7,7 +7,7 @@ BEGIN
 	
 	-- setup temp table
 	CREATE TABLE #tmpFreezerShelves(
-	shelf_number TINYINT
+        shelf_number TINYINT
 	);
  
 	INSERT INTO #tmpFreezerShelves

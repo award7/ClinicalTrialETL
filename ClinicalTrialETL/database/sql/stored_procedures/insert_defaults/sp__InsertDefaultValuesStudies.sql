@@ -7,7 +7,7 @@ BEGIN
 
 	-- setup temp table
 	CREATE TABLE #tmpStudies(
-	study VARCHAR(255)
+        study VARCHAR(255)
 	);
  
 	INSERT INTO #tmpStudies(study)

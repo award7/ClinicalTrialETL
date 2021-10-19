@@ -1,16 +1,16 @@
 CREATE PROCEDURE sp__InsertIntoBiosamples
-  @biosample_date DATE,
-  @subject VARCHAR(255),
-  @visit_name VARCHAR(255),
-  @time_point TINYINT,
-  @tube_color VARCHAR(255),
-  @freezer_number TINYINT,
-  @freezer_shelf TINYINT,
-  @box_color VARCHAR(255),
-  @box_number TINYINT,
-  @grid_location VARCHAR(255),
-  @personnel VARCHAR(255),
-  @status VARCHAR(255)
+	@biosample_date DATE,
+	@subject VARCHAR(255),
+	@visit_name VARCHAR(255),
+	@time_point TINYINT,
+	@tube_color VARCHAR(255),
+	@freezer_number TINYINT,
+	@freezer_shelf TINYINT,
+	@box_color VARCHAR(255),
+	@box_number TINYINT,
+	@grid_location VARCHAR(255),
+	@personnel VARCHAR(255),
+	@status VARCHAR(255)
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -33,7 +33,7 @@ BEGIN
 
     -- get freezer id
     DECLARE @freezer_id INT;
-    EXEC sp__GetFreezerId @freezer, @freezer_id OUTPUT;
+    EXEC sp__GetFreezerId @freezer_number, @freezer_id OUTPUT;
 
     -- get freezer shelf id
     DECLARE @freezer_shelf_id INT;
@@ -56,7 +56,20 @@ BEGIN
     EXEC sp__GetStatusId @status, @status_id OUTPUT;
 
     -- insert into table
-    INSERT INTO dbo.Biosamples
+    INSERT INTO dbo.Biosamples (
+		biosample_date,
+		subject_id,
+		visit_id,
+		time_point_id,
+		tube_color_id,
+		freezer_id,
+		freezer_shelf_id,
+		box_color_id,
+		box_number,
+		grid_location_id,
+		personnel_id,
+		status_id
+	)
     VALUES (
         @biosample_date,
         @subject_id,

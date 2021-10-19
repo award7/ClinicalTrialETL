@@ -8,8 +8,8 @@ BEGIN
 
 	-- setup temp table
 	CREATE TABLE #tmpPersonnel(
-	first_name NCHAR(255),
-	last_name NCHAR(255)
+        first_name NCHAR(255),
+        last_name NCHAR(255)
 	);
  
 	INSERT INTO #tmpPersonnel(first_name, last_name)

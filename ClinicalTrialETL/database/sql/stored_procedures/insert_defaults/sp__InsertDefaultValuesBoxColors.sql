@@ -7,7 +7,7 @@ BEGIN
 
 	-- setup temp table
 	CREATE TABLE #tmpBoxColors(
-	color VARCHAR(255)
+        color VARCHAR(255)
 	);
  
 	INSERT INTO #tmpBoxColors
