@@ -1,62 +1,78 @@
+-- Anthropometrics
+IF OBJECT_ID(N'dbo.Anthropometrics', N'U') IS NULL
+	BEGIN
+		CREATE TABLE dbo.Anthropometrics(
+			body_measurement_id TINYINT NOT NULL IDENTITY(1,1),
+			height NUMERIC(3,0),
+			weight NUMERIC(4,1),
+			body_mass_index NUMERIC(3,1),
+            body_mass_index_zscore NUMERIC(3,2),
+			hip_circumference TINYINT,
+			waist_circumference TINYINT,
+            waist_hip_ratio NUMERIC(3,2),
+			tanner_stage TINYINT,
+            time_point_id TINYINT NOT NULL
+		)
+	END;
+
+
 -- ArterialSpinLabelingData
 IF OBJECT_ID(N'dbo.ArterialSpinLabelingData', N'U') IS NULL
 	BEGIN
 		CREATE TABLE dbo.ArterialSpinLabelingData(
 			arterial_spin_labeling_id SMALLINT NOT NULL IDENTITY(1,1),
-			global NUMERIC(2,1),
-			hemisphere_l NUMERIC(2,1),
-			hemisphere_r NUMERIC(2,1),
-			mca_total NUMERIC(2,1),
-			mca_l NUMERIC(2,1),
-			mca_r NUMERIC(2,1),
-			aca_total NUMERIC(2,1),
-			aca_l NUMERIC(2,1),
-			aca_r NUMERIC(2,1),
-			pca_total NUMERIC(2,1),
-			pca_l NUMERIC(2,1),
-			pca_r NUMERIC(2,1),
-			frontal_lobe_total NUMERIC(2,1),
-			frontal_lobe_l NUMERIC(2,1),
-			frontal_lobe_r NUMERIC(2,1),
-			temporal_lobe_total	 NUMERIC(2,1),
-			temporal_lobe_l NUMERIC(2,1),
-			temporal_lobe_r NUMERIC(2,1),
-			parietal_lobe_total NUMERIC(2,1),
-			parietal_lobe_l NUMERIC(2,1),
-			parietal_lobe_r NUMERIC(2,1),
-			occipital_lobe_total NUMERIC(2,1),
-			occipital_lobe_l NUMERIC(2,1),
-			occipital_lobe_r NUMERIC(2,1),
-			angular_l NUMERIC(2,1),
-			angular_r NUMERIC(2,1),
-			cingulum_ant_l NUMERIC(2,1),
-			cingulum_ant_r NUMERIC(2,1),
-			cingulum_post_l NUMERIC(2,1),
-			cingulum_post_r NUMERIC(2,1),
-			frontal_med_orb_l NUMERIC(2,1),
-			frontal_med_orb_r NUMERIC(2,1),
-			frontal_mid_l NUMERIC(2,1),
-			frontal_mid_r NUMERIC(2,1),
-			frontal_mid_orb_l NUMERIC(2,1),
-			frontal_mid_orb_r NUMERIC(2,1),
-			frontal_sup_l NUMERIC(2,1),
-			frontal_sup_r NUMERIC(2,1),
-			frontal_sup_med_l NUMERIC(2,1),
-			frontal_sup_med_r NUMERIC(2,1),
-			frontal_sup_orb_l NUMERIC(2,1),
-			frontal_sup_orb_r NUMERIC(2,1),
-			hippocampus_l NUMERIC(2,1),
-			hippocampus_r NUMERIC(2,1),
-			precuneus_l NUMERIC(2,1),
-			precuneus_r NUMERIC(2,1),
-			supramarginal_l NUMERIC(2,1),
-			supramarginal_r NUMERIC(2,1),
-			temporal_mid_l NUMERIC(2,1),
-			temporal_mid_r NUMERIC(2,1),
-			temporal_sup_l NUMERIC(2,1),
-			temporal_sup_r NUMERIC(2,1),
-			subject_id SMALLINT NOT NULL,
-			visit_id SMALLINT NOT NULL,
+			global NUMERIC(3,1),
+			hemisphere_l NUMERIC(3,1),
+			hemisphere_r NUMERIC(3,1),
+			mca_total NUMERIC(3,1),
+			mca_l NUMERIC(3,1),
+			mca_r NUMERIC(3,1),
+			aca_total NUMERIC(3,1),
+			aca_l NUMERIC(3,1),
+			aca_r NUMERIC(3,1),
+			pca_total NUMERIC(3,1),
+			pca_l NUMERIC(3,1),
+			pca_r NUMERIC(3,1),
+			frontal_lobe_total NUMERIC(3,1),
+			frontal_lobe_l NUMERIC(3,1),
+			frontal_lobe_r NUMERIC(3,1),
+			temporal_lobe_total	 NUMERIC(3,1),
+			temporal_lobe_l NUMERIC(3,1),
+			temporal_lobe_r NUMERIC(3,1),
+			parietal_lobe_total NUMERIC(3,1),
+			parietal_lobe_l NUMERIC(3,1),
+			parietal_lobe_r NUMERIC(3,1),
+			occipital_lobe_total NUMERIC(3,1),
+			occipital_lobe_l NUMERIC(3,1),
+			occipital_lobe_r NUMERIC(3,1),
+			angular_l NUMERIC(3,1),
+			angular_r NUMERIC(3,1),
+			cingulum_ant_l NUMERIC(3,1),
+			cingulum_ant_r NUMERIC(3,1),
+			cingulum_post_l NUMERIC(3,1),
+			cingulum_post_r NUMERIC(3,1),
+			frontal_med_orb_l NUMERIC(3,1),
+			frontal_med_orb_r NUMERIC(3,1),
+			frontal_mid_l NUMERIC(3,1),
+			frontal_mid_r NUMERIC(3,1),
+			frontal_mid_orb_l NUMERIC(3,1),
+			frontal_mid_orb_r NUMERIC(3,1),
+			frontal_sup_l NUMERIC(3,1),
+			frontal_sup_r NUMERIC(3,1),
+			frontal_sup_med_l NUMERIC(3,1),
+			frontal_sup_med_r NUMERIC(3,1),
+			frontal_sup_orb_l NUMERIC(3,1),
+			frontal_sup_orb_r NUMERIC(3,1),
+			hippocampus_l NUMERIC(3,1),
+			hippocampus_r NUMERIC(3,1),
+			precuneus_l NUMERIC(3,1),
+			precuneus_r NUMERIC(3,1),
+			supramarginal_l NUMERIC(3,1),
+			supramarginal_r NUMERIC(3,1),
+			temporal_mid_l NUMERIC(3,1),
+			temporal_mid_r NUMERIC(3,1),
+			temporal_sup_l NUMERIC(3,1),
+			temporal_sup_r NUMERIC(3,1),
 			time_point_id TINYINT NOT NULL
 		)
 	END;
@@ -68,34 +84,15 @@ IF OBJECT_ID(N'dbo.Biosamples', N'U') IS NULL
 		CREATE TABLE dbo.Biosamples(
 			biosample_id SMALLINT NOT NULL,
 			biosample_date DATE NOT NULL,
-			subject_id SMALLINT NOT NULL,
-			visit_id SMALLINT NOT NULL,
 			time_point_id TINYINT,
 			tube_color_id TINYINT NOT NULL,
 			freezer_id TINYINT NOT NULL,
 			freezer_shelf_id  TINYINT NOT NULL,
 			box_color_id TINYINT NOT NULL,
 			box_number TINYINT NOT NULL,
-			grid_location TINYINT NOT NULL,
+			grid_location_id TINYINT NOT NULL,
 			personnel_id TINYINT NOT NULL,
 			status_id TINYINT NOT NULL
-		)
-	END;
-
-
--- BodyMeasurementsData
-IF OBJECT_ID(N'dbo.BodyMeasurementsData', N'U') IS NULL
-	BEGIN
-		CREATE TABLE dbo.BodyMeasurementsData(
-			body_measurement_id TINYINT NOT NULL IDENTITY(1,1),
-			height NUMERIC(3,0),
-			weight NUMERIC(4,1),
-			body_mass_index NUMERIC(3,1),
-			hip_circumference TINYINT,
-			waist_circumference TINYINT,
-			tanner_stage TINYINT,
-			subject_id SMALLINT NOT NULL,
-			visit_id SMALLINT NOT NULL
 		)
 	END;
 
@@ -124,8 +121,7 @@ IF OBJECT_ID(N'dbo.CerebrovascularReactivityData', N'U') IS NULL
             cardiac_output TINYINT,
             petco2 TINYINT,
             velocity SMALLINT,
-            subject_id SMALLINT NOT NULL,
-            visit_id SMALLINT NOT NULL
+            time_point_id TINYINT NOT NULL
 		)
 	END;
 
@@ -157,8 +153,7 @@ IF OBJECT_ID(N'dbo.CompleteBloodCountData', N'U') IS NULL
 			eosinophils_percent TINYINT,
 			basophils_percent TINYINT,
 			nucleated_red_blood_cell TINYINT,
-			subject_id SMALLINT NOT NULL,
-			visit_id SMALLINT NOT NULL
+			time_point_id TINYINT NOT NULL
 		)
 	END;
 
@@ -190,8 +185,7 @@ IF OBJECT_ID(N'dbo.DexaData', N'U') IS NULL
 			whole_fat_percent NUMERIC(3,1),
 			vat_volume NUMERIC(5,2),
 			vat_mass NUMERIC(2,2),
-			subject_id SMALLINT NOT NULL,
-			visit_id SMALLINT NOT NULL
+			time_point_id TINYINT NOT NULL
 		)
 	END;
 
@@ -234,8 +228,7 @@ IF OBJECT_ID(N'dbo.HeartRateRecoveryData', N'U') IS NULL
 			heart_rate_recovery_data_id SMALLINT NOT NULL IDENTITY(1,1),
 			time TINYINT NOT NULL,
 			heart_rate TINYINT,
-			subject_id SMALLINT NOT NULL,
-			visit_id SMALLINT NOT NULL,
+			time_point_id TINYINT NOT NULL
 		)
 	END;
 
@@ -259,8 +252,7 @@ IF OBJECT_ID(N'dbo.MaximalOxygenUptakeData', N'U') IS NULL
 			 petco2 TINYINT NOT NULL,
 			 ve_vo2 NUMERIC(3,2) NOT NULL,
 			 ve_vco2 NUMERIC(3,2) NOT NULL,
-			 subject_id SMALLINT NOT NULL,
-			 visit_id SMALLINT NOT NULL,
+			 time_point_id TINYINT NOT NULL
 		)
 	END;
 
@@ -274,7 +266,6 @@ IF OBJECT_ID(N'dbo.OgttBloodChemistries', N'U') IS NULL
             insulin SMALLINT,
             hemoglobin NUMERIC(3,1),
             subject_id SMALLINT NOT NULL,
-			visit_id SMALLINT NOT NULL,
 			time_point_id TINYINT NOT NULL
         )
     END;
@@ -302,8 +293,7 @@ IF OBJECT_ID(N'dbo.ScreeningBloodChemistries', N'U') IS NULL
 			triglycerides SMALLINT,
 			hemoglobin_a1c NUMERIC(3,1),
 			insulin TINYINT,
-			subject_id SMALLINT NOT NULL,
-			visit_id SMALLINT NOT NULL
+			time_point_id TINYINT NOT NULL
 			 )
 	END;
 
@@ -313,15 +303,14 @@ IF OBJECT_ID(N'dbo.ScreeningVitalsData', N'U') IS NULL
 	BEGIN
 		CREATE TABLE dbo.ScreeningVitalsData(
 			screening_vitals_data_id TINYINT NOT NULL IDENTITY(1,1),
-			measurement_number TINYINT NOT NULL,
+			-- measurement_number TINYINT NOT NULL,
 			heart_rate TINYINT,
 			systolic_blood_pressure TINYINT,
 			diastolic_blood_pressure TINYINT,
 			mean_arterial_pressure TINYINT,
 			respiratory_rate TINYINT,
 			pulse_oximetry TINYINT,
-			subject_id SMALLINT NOT NULL,
-			visit_id SMALLINT NOT NULL
+			time_point_id TINYINT NOT NULL
 			)
 	END;
 
@@ -413,8 +402,7 @@ IF OBJECT_ID(N'dbo.SubmaximalExerciseData', N'U') IS NULL
 			 petco2_gas TINYINT NOT NULL,
 			 ve_vo2 NUMERIC(3,2) NOT NULL,
 			 ve_vco2 NUMERIC(3,2) NOT NULL,
-			 subject_id SMALLINT NOT NULL,
-			 visit_id SMALLINT NOT NULL,
+			 time_point_id TINYINT NOT NULL
 		)
 	END;
 
@@ -424,7 +412,8 @@ IF OBJECT_ID(N'dbo.TimePoints', N'U') IS NULL
 	BEGIN
 		CREATE TABLE dbo.TimePoints(
 			 time_point_id TINYINT NOT NULL IDENTITY(1,1),
-			 time_point TINYINT NOT NULL			 
+			 time_point TINYINT NOT NULL,
+             visit_id SMALLINT NOT NULL
 		)
 	END;
 
@@ -475,8 +464,6 @@ IF OBJECT_ID(N'dbo.ViprHeartRateData', N'U') IS NULL
 			heart_rate_95 NUMERIC(15,13) NOT NULL,
 			heart_rate_100 NUMERIC(15,13) NOT NULL,
 			heart_rate TINYINT,
-			subject_id SMALLINT NOT NULL,
-			visit_id SMALLINT NOT NULL,
 			time_point_id TINYINT NOT NULL
 		)
 	END;
@@ -495,8 +482,6 @@ IF OBJECT_ID(N'dbo.ViprTimeAveragedData', N'U') IS NULL
 			 flow_per_heart_cycle NUMERIC(18,16) NOT NULL,
 			 wall_shear_stress   NUMERIC(18,16) NOT NULL,
 			 pulsatility_index NUMERIC(18,16) NOT NULL,
-			 subject_id SMALLINT NOT NULL,
-			 visit_id SMALLINT NOT NULL,
 			 time_point_id TINYINT NOT NULL,
 			 vessel_id TINYINT NOT NULL
 		)
@@ -529,8 +514,7 @@ IF OBJECT_ID(N'dbo.ViprTimeResolvedData', N'U') IS NULL
 			flow_90 NUMERIC(16,14) NOT NULL,
 			flow_95 NUMERIC(16,14) NOT NULL,
 			flow_100 NUMERIC(16,14) NOT NULL,
-			subject_id SMALLINT NOT NULL,
-			visit_id SMALLINT NOT NULL,
+            flow_min NUMERIC(16,14) NOT NULL,
 			time_point_id TINYINT NOT NULL,
 			vessel_id TINYINT NOT NULL
 		)
@@ -545,8 +529,6 @@ IF OBJECT_ID(N'dbo.ViprWindows', N'U') IS NULL
 			window SMALLINT NOT NULL,
 			lower_voxel SMALLINT NOT NULL,
 			upper_voxel SMALLINT NOT NULL,
-			subject_id SMALLINT NOT NULL,
-			visit_id SMALLINT NOT NULL,
 			time_point_id TINYINT NOT NULL,
 			vessel_id TINYINT NOT NULL
 		)
@@ -570,6 +552,6 @@ IF OBJECT_ID(N'dbo.Visits', N'U') IS NULL
 			 visit_id SMALLINT NOT NULL IDENTITY(1,1),
 			 visit_date DATE NOT NULL,
 			 visit_name_id TINYINT NOT NULL,
-			 subject_id SMALLINT NOT NULL
+			 time_point_id TINYINT NOT NULL
 		)
 	END;

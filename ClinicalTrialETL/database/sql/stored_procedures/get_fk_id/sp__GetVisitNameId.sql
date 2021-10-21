@@ -6,5 +6,5 @@ BEGIN
     SET NOCOUNT ON;
     SELECT @visit_name_id = visit_name_id
     FROM dbo.VisitNames
-    WHERE name = @name;
+    WHERE visit_name = @name;
 END

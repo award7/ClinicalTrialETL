@@ -124,7 +124,7 @@ BEGIN
         @temporal_mid_l,
         @temporal_mid_r,
         @temporal_sup_l,
-        @temporal_sup_r
+        @temporal_sup_r,
         @subject_id,
         @visit_id,
         @time_point_id

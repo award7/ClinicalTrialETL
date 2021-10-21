@@ -1,4 +1,4 @@
-CREATE PROCEDURE sp__InsertIntoBodyMeasurementsData
+CREATE PROCEDURE sp__InsertIntoAntrhopometrics
     @height NUMERIC(3,0),
     @weight NUMERIC(4,1),
     @body_mass_index NUMERIC(3,1),
@@ -20,7 +20,7 @@ BEGIN
     EXEC sp__GetVisitId @visit_name, @visit_id OUTPUT;
 
     -- insert into table
-    INSERT INTO dbo.BodyMeasurementsData
+    INSERT INTO dbo.Antrhopometrics
     VALUES (
         @height,
         @weight,

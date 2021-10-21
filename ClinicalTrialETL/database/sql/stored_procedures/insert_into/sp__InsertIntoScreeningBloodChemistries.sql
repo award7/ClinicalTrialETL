@@ -7,7 +7,7 @@ CREATE PROCEDURE sp__InsertIntoScreeningBloodChemistries
     @triglycerides SMALLINT,
     @hemoglobin_a1c NUMERIC(3,1),
     @insulin TINYINT,
-    @subject VARCHAR(255)
+    @subject VARCHAR(255),
     @visit_name VARCHAR(255)
 AS
 BEGIN

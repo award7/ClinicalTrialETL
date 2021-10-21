@@ -7,7 +7,7 @@ BEGIN
 
 	-- setup temp table
 	CREATE TABLE #tmpEthnicities(
-	ethnicity VARCHAR(255)
+        ethnicity VARCHAR(255)
 	);
  
 	INSERT INTO #tmpEthnicities

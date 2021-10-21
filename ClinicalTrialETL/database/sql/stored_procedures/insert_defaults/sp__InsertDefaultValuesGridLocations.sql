@@ -7,7 +7,7 @@ BEGIN
 
 	-- setup temp table
 	CREATE TABLE #tmpGridLocations(
-	location SMALLINT
+        location SMALLINT
 	);
 
 	INSERT INTO #tmpGridLocations

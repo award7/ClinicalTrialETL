@@ -1,4 +1,4 @@
-ALTER PROCEDURE sp__GetStudyId
+CREATE PROCEDURE sp__GetStudyId
 	@study VARCHAR(255),
 	@study_id INT OUTPUT
 AS

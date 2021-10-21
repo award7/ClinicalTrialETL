@@ -7,7 +7,7 @@ BEGIN
 
 	-- setup temp table
 	CREATE TABLE #tmpVessels(
-	vessel VARCHAR(255)
+        vessel VARCHAR(255)
 	);
  
 	INSERT INTO #tmpVessels

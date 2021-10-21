@@ -548,7 +548,7 @@ class CleanCognitiveData(BaseCleaner):
         return
 
     def csv2df(self) -> None:
-        return
+        self.df = pd.read_csv()
 
     def df2csv(self) -> None:
         return

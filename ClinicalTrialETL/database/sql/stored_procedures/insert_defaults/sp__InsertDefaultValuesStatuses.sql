@@ -7,7 +7,7 @@ BEGIN
 
 	-- setup temp table
 	CREATE TABLE #tmpStatuses(
-	status VARCHAR(255)
+        status VARCHAR(255)
 	);
  
 	INSERT INTO #tmpStatuses(status)

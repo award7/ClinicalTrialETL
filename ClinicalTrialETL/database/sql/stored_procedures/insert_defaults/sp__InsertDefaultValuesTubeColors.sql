@@ -7,7 +7,7 @@ BEGIN
 
 	-- setup temp table
 	CREATE TABLE #tmpTubeColors(
-	color VARCHAR(255)
+        color VARCHAR(255)
 	);
  
 	INSERT INTO #tmpTubeColors

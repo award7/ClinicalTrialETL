@@ -1,4 +1,4 @@
-ALTER PROCEDURE sp__GetSubjectId 
+CREATE PROCEDURE sp__GetSubjectId 
 	@subject VARCHAR(255),
 	@subject_id INT OUTPUT
 AS

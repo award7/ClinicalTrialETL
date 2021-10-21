@@ -1,5 +1,5 @@
 CREATE PROCEDURE sp__InsertIntoScreeningVitalsData
-    @measurement_number TINYINT,
+    -- @measurement_number TINYINT,
     @heart_rate TINYINT,
     @systolic_blood_pressure TINYINT,
     @diastolic_blood_pressure TINYINT,
@@ -22,7 +22,7 @@ BEGIN
 
     INSERT INTO dbo.ScreeningVitalsData
     VALUES(
-        @measurement_number,
+        -- @measurement_number,
         @heart_rate,
         @systolic_blood_pressure,
         @diastolic_blood_pressure,

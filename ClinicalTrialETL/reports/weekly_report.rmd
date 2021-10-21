@@ -1,0 +1,13 @@
+---
+name: "weekly_report"
+author: "Aaron Ward"
+date: "[date]"
+---
+
+```{r, echo=FALSE}
+library(plotly)
+p <- plot_ly(economics, x = ~date, y = ~unemploy / pop)
+p
+
+
+```

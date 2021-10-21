@@ -996,12 +996,12 @@ IF OBJECT_ID(N'chk__ScreeningBloodChemistries_insulin_gt_0', N'C') IS NULL
 
 
 -- ScreeningVitalsData
-IF OBJECT_ID(N'chk__ScreeningVitalsData_measurement_number_rng', N'C') IS NULL 
+/* IF OBJECT_ID(N'chk__ScreeningVitalsData_measurement_number_rng', N'C') IS NULL 
     BEGIN
         ALTER TABLE dbo.ScreeningVitalsData
         ADD CONSTRAINT chk__ScreeningVitalsData_measurement_number_rng
         CHECK (measurement_number <= 3 AND measurement_number > 0)
-    END;
+    END; */
 
 IF OBJECT_ID(N'chk__ScreeningVitalsData_heart_rate_rng', N'C') IS NULL 
     BEGIN
