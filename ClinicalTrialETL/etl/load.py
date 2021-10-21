@@ -1,22 +1,30 @@
 from airflow.providers.microsoft.mssql.hooks.mssql import MsSqlHook
 import csv
 
-"""load preprocessed data into db and update REDCap forms"""
+"""loading functions for loading processed data production tables"""
 
 
+# wrappers
 def load_csv2db(func):
     def wrapper(*args, **kwargs):
-        with open(kwargs['csv_path']) as csv_file:
+        with open(args[1]) as csv_file:
             csv_reader = csv.reader(csv_file)
-            next(csv_reader)
-            hook = MsSqlHook(mssql_conn_id=kwargs['conn_id'])
+            columns = next(csv_reader)
+            table = func(*args, **kwargs)
+            sql = """INSERT INTO {0}({1}) VALUES ({2})"""
+            sql = sql.format(table, ','.join(columns), ','.join('%s' for i in range(0, len(columns))))
+            hook = MsSqlHook(mssql_conn_id=args[0])
             conn = hook.get_conn()
             conn.autocommit(True)
             cur = conn.cursor()
-            sql = func(*args, **kwargs)
             for data in csv_reader:
                 cur.execute(sql, tuple(data))
     return wrapper
+
+
+@load_csv2db
+def load_anthropometrics(conn_id: str, csv_path: str, *args, **kwargs):
+    return "Anthropometrics"
 
 
 def load_arterial_spin_labeling_data(conn_id: str, csv_path: str, *args, **kwargs) -> str:
@@ -26,11 +34,6 @@ def load_arterial_spin_labeling_data(conn_id: str, csv_path: str, *args, **kwarg
 
 def load_biosamples():
     pass
-
-
-@load_csv2db
-def load_anthropometrics(conn_id: str, csv_path: str, *args, **kwargs):
-    return """sp__InsertIntoAnthropometrics @subject=%s, @visit_name=%s, @height=%s, @weight=%s, @body_mass_index=%s, @hip_circumference=%s, @waist_circumference=%s, @waist_hip_ratio=%s, @tanner_stage=%s"""
 
 
 def load_brain_volumes():
@@ -145,8 +148,8 @@ def load_wraml_data():
 
 class InsertData:
 
-    def __init__(self): # , db_object: DB):
-        self.cur = None # db_object.cur
+    def __init__(self):  # , db_object: DB):
+        self.cur = None  # db_object.cur
 
     def __del__(self):
         self.cur.close()
@@ -338,7 +341,6 @@ class LoadREDCap:
         self.df = df
 
     def load_to_yogtt004(self):
-
         pass
 
     def load_to_yogtt005(self):
@@ -355,4 +357,3 @@ class LoadREDCap:
 
     def load_to_yogtt008(self):
         pass
-

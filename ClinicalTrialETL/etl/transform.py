@@ -70,11 +70,11 @@ class BaseCleaner(metaclass=abc.ABCMeta):
         self.df.rename(columns={col: 'subject_id'}, inplace=True)
 
     @abc.abstractmethod
-    def df2csv(self) -> None:
+    def df2csv(self, staging_location, proc_file) -> None:
         return
 
     @abc.abstractmethod
-    def csv2df(self) -> None:
+    def csv2df(self, raw_file) -> None:
         return
 
     @staticmethod
@@ -90,7 +90,7 @@ class CleanDemographicsData(BaseCleaner):
         super().__init__()
         self.df = None
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, raw_file: str, proc_file: str, staging_location: str, *args, **kwargs):
         """
         Clean and process demographics data
 
@@ -100,7 +100,7 @@ class CleanDemographicsData(BaseCleaner):
         """
 
         # read df
-        self.csv2df(**kwargs)
+        self.csv2df(raw_file)
 
         # replace blank entries with nan
         self.fill_na()
@@ -120,27 +120,15 @@ class CleanDemographicsData(BaseCleaner):
         self.df = self.df.filter(cols)
 
         # write cleaned data to proc location
-        self.df2csv(**kwargs)
+        self.df2csv(staging_location, proc_file)
 
-        ti = kwargs['ti']
-        path = ti.xcom_pull(key='staging_location', task_ids='initialization.set-proc-staging-location')
-        file_name = kwargs['proc_file_name']
-        return os.path.join(path, file_name)
+        return os.path.join(staging_location, proc_file)
 
-    def df2csv(self, **kwargs) -> None:
-        # pass the keys and task_ids as kwargs
-        # todo: set the key and task_ids variables
-        ti = kwargs['ti']
-        path = ti.xcom_pull(key='staging_location', task_ids='initialization.set-proc-staging-location')
-        file_name = kwargs['proc_file_name']
-        self.df.to_csv(os.path.join(path, file_name), index=False)
+    def df2csv(self, staging_location, proc_file) -> None:
+        self.df.to_csv(os.path.join(staging_location, proc_file), index=False)
 
-    def csv2df(self, **kwargs) -> None:
-        # pass the keys and task_ids as kwargs
-        ti = kwargs['ti']
-        path = ti.xcom_pull(key='staging_location', task_ids=kwargs['raw_task_id'])
-        file_name = ti.xcom_pull(key='file', task_ids=kwargs['raw_task_id'])
-        self.df = pd.read_csv(os.path.join(path, file_name))
+    def csv2df(self, raw_file) -> None:
+        self.df = pd.read_csv(raw_file)
 
     def transform_age(self) -> None:
         self.df.rename(columns={'age_scr_data': 'age'}, inplace=True)
@@ -369,6 +357,8 @@ class CleanScreeningData(BaseCleaner):
         self.to_datetime(['date_scr_data'])
 
         self.transform_subject_id()
+        self.transform_homa_ir()
+        self.transform_bmi()
 
         self.df2csv(**kwargs)
 
@@ -875,14 +865,3 @@ def read_proc_file(task_id):
         return wrapper
 
     return decorator
-
-
-def set_proc_staging_location(ti: object = None, *args, **kwargs) -> None:
-    """
-    xcom_push the proc_staging_location
-
-    :param ti: task instance object from airflow
-    :type ti: object
-    """
-    proc_staging_location = get_default_staging_location(bucket='proc')
-    ti.xcom_push(key='staging_location', value=proc_staging_location)
